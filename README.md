@@ -1,4 +1,4 @@
-# W.I.P - Not ready for usage yet, no matter what Claude says
+# W.I.P - Still tweaking the quality of the output
 
 # Wiki Bot
 
