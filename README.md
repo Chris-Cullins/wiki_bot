@@ -11,6 +11,7 @@ An AI-powered documentation generator that automatically creates comprehensive G
 - **Intelligent File Mapping**: Maps source files to relevant documentation sections
 - **Multi-Phase Workflow**: Systematic approach to creating comprehensive documentation
 - **Streaming Responses**: Real-time documentation generation using Claude's streaming API
+- **Flexible LLM Providers**: Default to the Anthropic Agent SDK or run via local Claude/Codex CLIs to manage usage
 
 ## Installation
 
@@ -38,6 +39,9 @@ ANTHROPIC_API_KEY=your_api_key_here
 
 # Optional: Custom API endpoint
 ANTHROPIC_BASE_URL=https://api.anthropic.com
+
+# Optional: Choose a local CLI provider (default: agent-sdk)
+LLM_PROVIDER=claude-cli # or codex-cli
 
 # Optional: Repository to document (defaults to current working directory)
 REPO_PATH=/path/to/your/repository
@@ -71,6 +75,23 @@ npm start
 ```bash
 npm run type-check
 ```
+
+### Switching LLM Providers
+
+Set `LLM_PROVIDER` to choose which backend executes prompts:
+
+```bash
+# Anthropic Agent SDK (default)
+export LLM_PROVIDER=agent-sdk
+
+# Claude CLI wrapper (uses `claude -p` under the hood)
+export LLM_PROVIDER=claude-cli
+
+# Codex CLI wrapper (streams JSON from `codex exec --json -`)
+export LLM_PROVIDER=codex-cli
+```
+
+When using the CLI adapters, make sure the corresponding binary is installed, authenticated, and available on `PATH`. The bot pipes each prompt through the tool once and captures the response, so interactive sessions are not supported.
 
 ## How It Works
 

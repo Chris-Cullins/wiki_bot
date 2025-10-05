@@ -1,5 +1,7 @@
 import type { RepositoryMode } from './wiki-storage/git-repository-manager.js';
 
+export type LlmProvider = 'agent-sdk' | 'claude-cli' | 'codex-cli';
+
 /**
  * Configuration management for the wiki bot
  */
@@ -30,16 +32,35 @@ export interface Config {
   testMode?: boolean;
   /** Enable incremental documentation updates (reuse existing wiki content) */
   incrementalDocs?: boolean;
+  /** Model provider to power prompt execution */
+  llmProvider: LlmProvider;
 }
 
 /**
  * Load configuration from environment variables
  */
 export function loadConfig(): Config {
-  const testMode = process.env.TEST_MODE === 'true';
-  const apiKey = process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_API_KEY || (testMode ? 'test-mode-key' : '');
+  const rawProvider = process.env.LLM_PROVIDER?.toLowerCase();
+  let llmProvider: LlmProvider = 'agent-sdk';
+  if (rawProvider) {
+    if (rawProvider === 'claude-cli' || rawProvider === 'claude') {
+      llmProvider = 'claude-cli';
+    } else if (rawProvider === 'codex-cli' || rawProvider === 'codex') {
+      llmProvider = 'codex-cli';
+    } else if (rawProvider === 'agent-sdk' || rawProvider === 'anthropic') {
+      llmProvider = 'agent-sdk';
+    }
+  }
 
-  if (!apiKey && !testMode) {
+  const testMode = process.env.TEST_MODE === 'true';
+  const apiKey =
+    process.env.ANTHROPIC_AUTH_TOKEN ||
+    process.env.ANTHROPIC_API_KEY ||
+    (testMode ? 'test-mode-key' : '');
+
+  const requiresAnthropicKey = llmProvider !== 'codex-cli';
+
+  if (!apiKey && !testMode && requiresAnthropicKey) {
     throw new Error('ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY environment variable is required');
   }
 
@@ -64,5 +85,6 @@ export function loadConfig(): Config {
     wikiRepoShallow: process.env.WIKI_REPO_SHALLOW === 'true',
     testMode,
     incrementalDocs: process.env.INCREMENTAL_DOCS === 'true',
+    llmProvider,
   };
 }

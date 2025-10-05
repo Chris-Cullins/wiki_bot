@@ -88,6 +88,31 @@ export class WikiGenerator {
     return this.stripLeadingCommentary(trimmed);
   }
 
+  private ensureHeading(content: string, title: string): string {
+    const trimmed = content.trim();
+    if (!trimmed) {
+      return `# ${title}`;
+    }
+
+    const normalizedTitle = title.trim().replace(/\s+/g, ' ').toLowerCase();
+    const lines = trimmed.split(/\r?\n/);
+    const firstLine = lines[0]?.trim() ?? '';
+
+    const headingMatch = firstLine.match(/^(#+)\s+(.*)$/);
+    if (headingMatch) {
+      const [, _hashes, text] = headingMatch;
+      const normalizedHeading = text.trim().replace(/\s+/g, ' ').toLowerCase();
+      if (normalizedHeading === normalizedTitle) {
+        return trimmed;
+      }
+
+      lines[0] = `## ${text.trim()}`;
+      return `# ${title}\n\n${lines.join('\n')}`.trim();
+    }
+
+    return `# ${title}\n\n${trimmed}`;
+  }
+
   private stripLeadingCommentary(content: string): string {
     const headingIndex = content.search(/(^|\n)\s*#/);
     if (headingIndex > 0) {
@@ -218,8 +243,9 @@ export class WikiGenerator {
     const query = this.createQuery(prompt);
 
     const response = this.stripFenceWrappers(await this.collectResponseText(query));
+    const withHeading = this.ensureHeading(response, 'Home');
 
-    return response || '# Repository Overview\n\nUnable to generate home page.';
+    return withHeading || '# Home\n\nUnable to generate home page.';
   }
 
   /**
@@ -244,8 +270,9 @@ export class WikiGenerator {
     const query = this.createQuery(prompt);
 
     const response = this.stripFenceWrappers(await this.collectResponseText(query));
+    const withHeading = this.ensureHeading(response, 'Architecture');
 
-    return response || '# Architectural Overview\n\nUnable to generate architectural overview.';
+    return withHeading || '# Architecture\n\nUnable to generate architectural overview.';
   }
 
   /**
@@ -374,8 +401,9 @@ export class WikiGenerator {
     const query = this.createQuery(prompt);
 
     const response = this.stripFenceWrappers(await this.collectResponseText(query));
+    const withHeading = this.ensureHeading(response, area);
 
-    return response || `# ${area}\n\nUnable to generate documentation for this area.`;
+    return withHeading || `# ${area}\n\nUnable to generate documentation for this area.`;
   }
 
   /**

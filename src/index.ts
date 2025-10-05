@@ -1,11 +1,10 @@
 import 'dotenv/config';
-import { query } from '@anthropic-ai/claude-agent-sdk';
-import { createMockQuery } from './mock-agent-sdk.js';
 import { loadConfig } from './config.js';
 import { RepoCrawler } from './repo-crawler.js';
 import { WikiGenerator } from './wiki-generator.js';
 import { GitHubWikiWriter } from './wiki-storage/github-wiki-writer.js';
 import { join } from 'path';
+import { createQueryFunction } from './llm/query-factory.js';
 
 /**
  * Main entry point for the wiki bot application
@@ -17,22 +16,25 @@ async function main() {
   // Load configuration
   const config = loadConfig();
 
-  // Use mock query in test mode
-  const queryFn = config.testMode ? createMockQuery() : query;
+  const queryFn = createQueryFunction(config);
 
   if (config.testMode) {
     console.log('⚠️  TEST MODE ENABLED - Using mock Agent SDK (no API calls will be made)');
+  } else {
+    console.log(`Using LLM provider: ${config.llmProvider}`);
   }
 
   // Ensure the Claude Agent CLI can read authentication details
-  if (!process.env.ANTHROPIC_API_KEY) {
-    process.env.ANTHROPIC_API_KEY = config.apiKey;
-  }
-  if (!process.env.ANTHROPIC_AUTH_TOKEN) {
-    process.env.ANTHROPIC_AUTH_TOKEN = config.apiKey;
-  }
-  if (config.baseURL && !process.env.ANTHROPIC_BASE_URL) {
-    process.env.ANTHROPIC_BASE_URL = config.baseURL;
+  if (config.llmProvider !== 'codex-cli' && config.llmProvider !== 'claude-cli') {
+    if (config.apiKey && !process.env.ANTHROPIC_API_KEY) {
+      process.env.ANTHROPIC_API_KEY = config.apiKey;
+    }
+    if (config.apiKey && !process.env.ANTHROPIC_AUTH_TOKEN) {
+      process.env.ANTHROPIC_AUTH_TOKEN = config.apiKey;
+    }
+    if (config.baseURL && !process.env.ANTHROPIC_BASE_URL) {
+      process.env.ANTHROPIC_BASE_URL = config.baseURL;
+    }
   }
 
   // Determine the repository path
@@ -54,14 +56,14 @@ async function main() {
   // Prepare wiki writer if configured
   const wikiWriter = config.wikiRepoUrl
     ? new GitHubWikiWriter({
-        wikiRepoUrl: config.wikiRepoUrl,
-        localPath: config.wikiRepoPath || join(repoPath, '.wiki'),
-        token: config.githubToken,
-        defaultBranch: config.wikiRepoBranch,
-        commitMessage: config.wikiCommitMessage,
-        mode: config.wikiRepoMode,
-        shallow: config.wikiRepoShallow,
-      })
+      wikiRepoUrl: config.wikiRepoUrl,
+      localPath: config.wikiRepoPath || join(repoPath, '.wiki'),
+      token: config.githubToken,
+      defaultBranch: config.wikiRepoBranch,
+      commitMessage: config.wikiCommitMessage,
+      mode: config.wikiRepoMode,
+      shallow: config.wikiRepoShallow,
+    })
     : undefined;
 
   const allDocs = new Map<string, string>();

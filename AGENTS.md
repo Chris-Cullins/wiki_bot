@@ -8,7 +8,7 @@
 ## Platform Overview
 - TypeScript application running on Node.js.
 - Uses ES modules and strict TypeScript settings.
-- Communicates with Claude through the Agent SDK (`query`) to drive every documentation phase.
+- Communicates with Claude through the Agent SDK (`query`) by default, with optional CLI wrappers for Claude Code (`LLM_PROVIDER=claude-cli`) or Codex (`LLM_PROVIDER=codex-cli`).
 - Discovers repository context with a filesystem crawler that produces a `FileNode` tree while ignoring generated artifacts (`node_modules`, `dist`, `.git`, etc.).
 
 ## Core Workflow
@@ -36,7 +36,7 @@ npm start
 ```
 
 ## Configuration
-- API access is required via `ANTHROPIC_AUTH_TOKEN` or `ANTHROPIC_API_KEY`.
+- API access is required via `ANTHROPIC_AUTH_TOKEN` or `ANTHROPIC_API_KEY` unless using the Codex CLI provider.
 - Optional overrides:
   - `ANTHROPIC_BASE_URL` for custom endpoints.
   - `REPO_PATH` to target a specific local repository (defaults to CWD).
