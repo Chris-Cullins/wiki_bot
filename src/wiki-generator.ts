@@ -51,6 +51,43 @@ export class WikiGenerator {
     return mockText;
   }
 
+  private stripFenceWrappers(content: string): string {
+    const trimmed = content.trim();
+
+    const firstFence = trimmed.indexOf('```');
+    if (firstFence !== -1) {
+      const afterFence = trimmed.slice(firstFence + 3);
+      const newlineIndex = afterFence.indexOf('\n');
+      let start = firstFence + 3;
+      if (newlineIndex !== -1) {
+        const language = afterFence.slice(0, newlineIndex).trim();
+        if (/^[a-zA-Z0-9+-]*$/.test(language)) {
+          start = firstFence + 3 + newlineIndex + 1;
+        }
+      }
+      const closingFence = trimmed.lastIndexOf('```');
+      if (closingFence > start) {
+        const inner = trimmed.slice(start, closingFence).trim();
+        if (inner.length > 0) {
+          return this.stripLeadingCommentary(inner);
+        }
+      }
+    }
+
+    return this.stripLeadingCommentary(trimmed);
+  }
+
+  private stripLeadingCommentary(content: string): string {
+    const headingIndex = content.search(/(^|\n)\s*#/);
+    if (headingIndex > 0) {
+      const normalizedHeadingIndex = content.indexOf('#', headingIndex);
+      if (normalizedHeadingIndex !== -1) {
+        return content.slice(normalizedHeadingIndex).trim();
+      }
+    }
+    return content;
+  }
+
   private isMockAssistantMessage(message: unknown): message is { type: 'assistant'; content: string } {
     return (
       typeof message === 'object' &&
@@ -170,7 +207,7 @@ export class WikiGenerator {
       },
     });
 
-    const response = await this.collectResponseText(query);
+    const response = this.stripFenceWrappers(await this.collectResponseText(query));
 
     return response || '# Repository Overview\n\nUnable to generate home page.';
   }
@@ -192,7 +229,7 @@ export class WikiGenerator {
       },
     });
 
-    const response = await this.collectResponseText(query);
+    const response = this.stripFenceWrappers(await this.collectResponseText(query));
 
     return response || '# Architectural Overview\n\nUnable to generate architectural overview.';
   }
@@ -211,7 +248,7 @@ export class WikiGenerator {
       },
     });
 
-    const response = await this.collectResponseText(query);
+    const response = this.stripFenceWrappers(await this.collectResponseText(query));
 
     try {
       const areas = JSON.parse(response);
@@ -246,7 +283,7 @@ export class WikiGenerator {
       },
     });
 
-    const response = await this.collectResponseText(query);
+    const response = this.stripFenceWrappers(await this.collectResponseText(query));
 
     try {
       const files = JSON.parse(response);
@@ -310,7 +347,7 @@ export class WikiGenerator {
       },
     });
 
-    const response = await this.collectResponseText(query);
+    const response = this.stripFenceWrappers(await this.collectResponseText(query));
 
     return response || `# ${area}\n\nUnable to generate documentation for this area.`;
   }

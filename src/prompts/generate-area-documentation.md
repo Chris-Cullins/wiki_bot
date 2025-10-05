@@ -11,4 +11,8 @@ Please create a detailed documentation page that includes:
 5. **Developer Notes**: Gotchas, best practices, and things to be aware of
 6. **Usage Examples**: Where applicable, show how to use this area
 
-The output should be in Markdown format, well-structured, and targeted at developers who need to understand or work with this code.
+Output requirements:
+- Return only the finished Markdown for this wiki page.
+- Do not include any commentary about the analysis process or tool usage.
+- Avoid phrases about reading files or awaiting permission.
+- Keep the tone developer-focused and concise.

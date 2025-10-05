@@ -1,0 +1,3 @@
+- [ ] Add logging of agent output for debugging
+- [ ] Add "Depth" configuration, how in depth the user wants the wiki page to go for that area.
+- [ ] Make sure git wiki modes tell agent what is currently existing for "update" mode. 

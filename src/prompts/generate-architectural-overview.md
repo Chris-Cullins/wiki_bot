@@ -14,4 +14,8 @@ For the architectural slices, provide a list in this format:
 ## Architectural Areas
 - **Area Name**: Brief description
 
-The output should be in Markdown format and technical but accessible.
+Output requirements:
+- Return only the completed Markdown for `Architecture.md`.
+- Exclude any meta commentary, intermediate steps, or tool usage descriptions.
+- Do not ask for permissions or reference reading/writing files.
+- Maintain a technical yet accessible tone.

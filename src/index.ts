@@ -51,28 +51,68 @@ async function main() {
   // Initialize wiki generator with appropriate query function
   const wikiGenerator = new WikiGenerator(queryFn, config);
 
+  // Prepare wiki writer if configured
+  const wikiWriter = config.wikiRepoUrl
+    ? new GitHubWikiWriter({
+        wikiRepoUrl: config.wikiRepoUrl,
+        localPath: config.wikiRepoPath || join(repoPath, '.wiki'),
+        token: config.githubToken,
+        defaultBranch: config.wikiRepoBranch,
+        commitMessage: config.wikiCommitMessage,
+        mode: config.wikiRepoMode,
+        shallow: config.wikiRepoShallow,
+      })
+    : undefined;
+
+  const allDocs = new Map<string, string>();
+
+  const sanitizePageName = (name: string): string => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return 'Page';
+    }
+    if (/^home$/i.test(trimmed)) {
+      return 'Home';
+    }
+    return trimmed
+      .replace(/[\\/]+/g, ' ')
+      .replace(/[^A-Za-z0-9\s_-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const persistDocs = async (stage: string) => {
+    if (!wikiWriter) {
+      return;
+    }
+
+    console.log(` Writing wiki after ${stage}...`);
+    await wikiWriter.writeDocumentation(new Map(allDocs));
+  };
+
   // Generate wiki documentation
   console.log('\nGenerating wiki documentation...');
 
   // Step 1: Generate Home page
   const homePage = await wikiGenerator.generateHomePage(repoStructure);
+  allDocs.set(sanitizePageName('Home'), homePage);
   console.log(' Home page generated');
+  await persistDocs('home page');
 
   // Step 2: Generate architectural overview
   const archOverview = await wikiGenerator.generateArchitecturalOverview(repoStructure);
+  allDocs.set(sanitizePageName('Architecture'), archOverview);
   console.log(' Architectural overview generated');
+  await persistDocs('architectural overview');
 
   // Step 3: Extract architectural areas
   const areas = await wikiGenerator.extractArchitecturalAreas(archOverview);
   console.log(` Identified ${areas.length} architectural areas: ${areas.join(', ')}`);
 
   // Step 4: Generate documentation for each area
-  const areaDocumentation = new Map<string, string>();
-
   for (const area of areas) {
     console.log(`\nDocumenting area: ${area}`);
 
-    // Identify relevant files for this area
     const relevantFiles = await wikiGenerator.identifyRelevantFiles(
       area,
       filePaths,
@@ -81,43 +121,22 @@ async function main() {
     console.log(`  - Found ${relevantFiles.length} relevant files`);
 
     if (relevantFiles.length > 0) {
-      // Generate documentation for this area
       const doc = await wikiGenerator.generateAreaDocumentation(area, relevantFiles);
-      areaDocumentation.set(area, doc);
+      const pageName = sanitizePageName(area);
+      allDocs.set(pageName, doc);
       console.log(`   Documentation generated for ${area}`);
+      await persistDocs(`area ${area}`);
     } else {
       console.log(`   No relevant files found for ${area}, skipping`);
     }
   }
-
-  // Store all generated documentation
-  const allDocs = new Map<string, string>([
-    ['Home', homePage],
-    ['Architecture', archOverview],
-    ...areaDocumentation,
-  ]);
 
   console.log('\n Generated Documentation Pages:');
   for (const [page, _content] of allDocs) {
     console.log(`  - ${page}`);
   }
 
-  if (config.wikiRepoUrl) {
-    console.log('\nWriting documentation to GitHub wiki...');
-
-    const wikiWriter = new GitHubWikiWriter({
-      wikiRepoUrl: config.wikiRepoUrl,
-      localPath: config.wikiRepoPath || join(repoPath, '.wiki'),
-      token: config.githubToken,
-      defaultBranch: config.wikiRepoBranch,
-      commitMessage: config.wikiCommitMessage,
-      mode: config.wikiRepoMode,
-      shallow: config.wikiRepoShallow,
-    });
-
-    await wikiWriter.writeDocumentation(allDocs);
-    console.log(' GitHub wiki updated successfully');
-  } else {
+  if (!wikiWriter) {
     console.log('\nNo GitHub wiki configuration found; skipping wiki write');
   }
 

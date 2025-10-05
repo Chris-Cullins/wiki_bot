@@ -10,4 +10,8 @@ Please create a Home.md page that includes:
 4. High-level architecture summary
 5. Links to key documentation sections
 
-The output should be in Markdown format and professional.
+Output requirements:
+- Return only the finished Markdown for `Home.md`.
+- Do not include analysis notes, tool instructions, or commentary about what you are doing.
+- Do not ask for permission or mention writing files.
+- Keep the tone professional and concise.

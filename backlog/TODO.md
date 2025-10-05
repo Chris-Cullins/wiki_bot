@@ -225,7 +225,7 @@ Implement better visibility into the wiki generation process.
 - Add structured logging (e.g., winston, pino)
 - Implement progress bars for long operations
 - Add timing metrics
-- Create summary reports of what was generated
+- Create summary reports of what was generated (including API costs on this run)
 - Add debug mode for troubleshooting
 
 ---
