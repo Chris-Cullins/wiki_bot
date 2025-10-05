@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "build": "tsc && mkdir -p dist/prompts && cp src/prompts/*.md dist/prompts/",
+    "build": "tsc && mkdir -p dist/prompts dist/templates && cp src/prompts/*.md dist/prompts/ && cp -R src/templates/. dist/templates/",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "type-check": "tsc --noEmit"

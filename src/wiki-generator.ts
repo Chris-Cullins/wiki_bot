@@ -4,11 +4,12 @@ import type {
   SDKPartialAssistantMessage,
 } from '@anthropic-ai/claude-agent-sdk';
 import type { FileNode } from './repo-crawler.js';
-import type { Config } from './config.js';
+import type { Config, DocumentationDepth } from './config.js';
 import { readFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import { loadPrompt } from './prompt-loader.js';
 import { DebugLogger } from './logging.js';
+import { TemplateRenderer } from './template-renderer.js';
 
 const DEFAULT_MERMAID_BODY = `\`\`\`mermaid\ngraph TD\n    ComponentA[Component A] --> ComponentB[Component B]\n    ComponentB --> ComponentC[Component C]\n\`\`\``;
 
@@ -17,13 +18,23 @@ const DEFAULT_MERMAID_BODY = `\`\`\`mermaid\ngraph TD\n    ComponentA[Component 
  */
 export class WikiGenerator {
   private readonly _logger: DebugLogger;
+  private readonly _depth: DocumentationDepth;
+  private readonly _templates: TemplateRenderer;
 
   constructor(
     private _query: (params: { prompt: string; options?: any }) => Query,
     private _config: Config,
     logger?: DebugLogger,
   ) {
-    this._logger = logger ?? new DebugLogger(Boolean(_config.debug));
+    this._logger =
+      logger ??
+      new DebugLogger({
+        enabled: Boolean(_config.debug),
+        promptLoggingEnabled: _config.promptLoggingEnabled,
+        promptLogDir: _config.promptLogDir,
+      });
+    this._depth = _config.documentationDepth ?? 'standard';
+    this._templates = new TemplateRenderer(_config.templateDir);
   }
 
   private createQuery(prompt: string): Query {
@@ -141,6 +152,14 @@ export class WikiGenerator {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  private slugify(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'section';
+  }
+
   private ensureSection(content: string, heading: string, fallbackBody: string): string {
     const escapedHeading = this.escapeRegExp(heading);
     const pattern = new RegExp(`^##\\s+${escapedHeading}\\b`, 'm');
@@ -194,6 +213,17 @@ export class WikiGenerator {
     }
 
     return `${normalized}\n\n## Diagram\n\n${mermaidBlock}\n`.trim();
+  }
+
+  private getDepthInstruction(): string {
+    switch (this._depth) {
+      case 'summary':
+        return 'Keep the documentation concise and high-level. Focus on purpose, main responsibilities, and how this area is used. Skip deep implementation walk-throughs.';
+      case 'deep':
+        return 'Provide exhaustive detail that helps maintainers. Explain control flow, important helpers, rationale for design choices, and include illustrative examples or edge cases.';
+      default:
+        return 'Offer a balanced level of detail suitable for experienced engineers. Explain responsibilities, primary workflows, and key call-outs without overwhelming minutiae.';
+    }
   }
 
   private isMockAssistantMessage(message: unknown): message is { type: 'assistant'; content: string } {
@@ -317,20 +347,30 @@ export class WikiGenerator {
     this._logger.debug('Loaded home page prompt', {
       promptName,
       length: prompt.length,
+      preview: prompt.slice(0, 200),
     });
+
+    this._logger.logPrompt('home-page', prompt);
 
     const query = this.createQuery(prompt);
 
-    const response = this.stripFenceWrappers(await this.collectResponseText(query));
+    const rawResponse = await this.collectResponseText(query);
+    this._logger.logResponse('home-page', rawResponse);
+    const response = this.stripFenceWrappers(rawResponse);
     this._logger.debug('Home page raw response', {
-      preview: response.slice(0, 200),
+      preview: rawResponse.slice(0, 200),
     });
     const withHeading = this.ensureHeading(response, 'Home');
+    const templated = await this._templates.render('home', {
+      title: 'Home',
+      content: withHeading,
+      depth: this._depth,
+    });
     this._logger.debug('Generated home page content', {
-      preview: withHeading.slice(0, 200),
+      preview: templated.slice(0, 200),
     });
 
-    return withHeading || '# Home\n\nUnable to generate home page.';
+    return templated || '# Home\n\nUnable to generate home page.';
   }
 
   /**
@@ -357,21 +397,31 @@ export class WikiGenerator {
     this._logger.debug('Loaded architecture prompt', {
       promptName,
       length: prompt.length,
+      preview: prompt.slice(0, 200),
     });
+
+    this._logger.logPrompt('architecture-overview', prompt);
 
     const query = this.createQuery(prompt);
 
-    const response = this.stripFenceWrappers(await this.collectResponseText(query));
+    const rawResponse = await this.collectResponseText(query);
+    this._logger.logResponse('architecture-overview', rawResponse);
+    const response = this.stripFenceWrappers(rawResponse);
     this._logger.debug('Architecture raw response', {
-      preview: response.slice(0, 200),
+      preview: rawResponse.slice(0, 200),
     });
     const withHeading = this.ensureHeading(response, 'Architecture');
     const normalized = this.ensureArchitectureOutline(withHeading);
+    const templated = await this._templates.render('architecture', {
+      title: 'Architecture',
+      content: normalized,
+      depth: this._depth,
+    });
     this._logger.debug('Generated architecture content', {
-      preview: normalized.slice(0, 200),
+      preview: templated.slice(0, 200),
     });
 
-    return normalized || '# Architecture\n\nUnable to generate architectural overview.';
+    return templated || '# Architecture\n\nUnable to generate architectural overview.';
   }
 
   /**
@@ -381,13 +431,18 @@ export class WikiGenerator {
     const prompt = await loadPrompt('extract-architectural-areas', { architecturalOverview });
     this._logger.debug('Loaded extract-areas prompt', {
       length: prompt.length,
+      preview: prompt.slice(0, 200),
     });
+
+    this._logger.logPrompt('extract-areas', prompt);
 
     const query = this.createQuery(prompt);
 
-    const response = this.stripFenceWrappers(await this.collectResponseText(query));
+    const rawResponse = await this.collectResponseText(query);
+    this._logger.logResponse('extract-areas', rawResponse);
+    const response = this.stripFenceWrappers(rawResponse);
     this._logger.debug('Architectural areas raw response', {
-      preview: response.slice(0, 200),
+      preview: rawResponse.slice(0, 200),
     });
 
     try {
@@ -418,14 +473,19 @@ export class WikiGenerator {
     this._logger.debug('Loaded relevant-files prompt', {
       area,
       length: prompt.length,
+      preview: prompt.slice(0, 200),
     });
+
+    this._logger.logPrompt(`identify-files-${area}`, prompt);
 
     const query = this.createQuery(prompt);
 
-    const response = this.stripFenceWrappers(await this.collectResponseText(query));
+    const rawResponse = await this.collectResponseText(query);
+    this._logger.logResponse(`identify-files-${area}`, rawResponse);
+    const response = this.stripFenceWrappers(rawResponse);
     this._logger.debug('Relevant files raw response', {
       area,
-      preview: response.slice(0, 200),
+      preview: rawResponse.slice(0, 200),
     });
 
     try {
@@ -523,24 +583,43 @@ export class WikiGenerator {
       area,
       fileContentText,
       existingDoc: existingDoc ?? '',
+      depthInstruction: this.getDepthInstruction(),
     });
 
     this._logger.debug('Loaded area documentation prompt', {
       area,
       promptName,
       length: prompt.length,
+      preview: prompt.slice(0, 200),
     });
+
+    this._logger.logPrompt(`area-${area}`, prompt);
 
     const query = this.createQuery(prompt);
 
-    const response = this.stripFenceWrappers(await this.collectResponseText(query));
+    const rawResponse = await this.collectResponseText(query);
+    this._logger.logResponse(`area-${area}`, rawResponse);
+    const response = this.stripFenceWrappers(rawResponse);
     this._logger.debug('Area documentation raw response', {
       area,
-      preview: response.slice(0, 200),
+      preview: rawResponse.slice(0, 200),
     });
     const withHeading = this.ensureHeading(response, area);
+    const templated = await this._templates.render(
+      'area',
+      {
+        title: area,
+        area,
+        content: withHeading,
+        depth: this._depth,
+      },
+      {
+        variant: this.slugify(area),
+        variantSubdir: 'areas',
+      },
+    );
 
-    return withHeading || `# ${area}\n\nUnable to generate documentation for this area.`;
+    return templated || `# ${area}\n\nUnable to generate documentation for this area.`;
   }
 
   /**

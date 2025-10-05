@@ -4,10 +4,12 @@ This document tracks all pending features and improvements for the wiki bot appl
 
 ## High Priority TODOs
 
-- [ ] Add logging of agent output for debugging so we can persist raw prompts/responses when diagnosing issues.
-- [ ] Add a "Depth" configuration toggle to control how detailed the wiki pages should become for each area.
-- [ ] Ensure git wiki modes provide existing page content to the agent during "update" operations.
-- [ ] Add a CLI flag that targets a specific file for regeneration when a page needs to be recreated.
+- [x] Add logging of agent output for debugging so we can persist raw prompts/responses when diagnosing issues.
+- [x] Add a "Depth" configuration toggle to control how detailed the wiki pages should become for each area.
+- [x] Ensure git wiki modes provide existing page content to the agent during "update" operations.
+- [x] Add a CLI flag that targets a specific file for regeneration when a page needs to be recreated.
+- [x] Add the ability to provide your own page templates in a src/templates/ directory, to customize the output more. 
+- [x] Add cleanup when the "fresh" setting is turned on, to delete any pre-existing wiki md files in the wiki repo. Maybe another setting to turn that on, since it's destructive? 
 
 ## Phase 1: Core Wiki Generation ✅
 
