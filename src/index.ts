@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { createMockQuery } from './mock-agent-sdk.js';
 import { loadConfig } from './config.js';
 import { RepoCrawler } from './repo-crawler.js';
 import { WikiGenerator } from './wiki-generator.js';
@@ -15,6 +16,13 @@ async function main() {
 
   // Load configuration
   const config = loadConfig();
+
+  // Use mock query in test mode
+  const queryFn = config.testMode ? createMockQuery() : query;
+
+  if (config.testMode) {
+    console.log('⚠️  TEST MODE ENABLED - Using mock Agent SDK (no API calls will be made)');
+  }
 
   // Ensure the Claude Agent CLI can read authentication details
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -40,8 +48,8 @@ async function main() {
   const filePaths = crawler.getFilePaths(repoStructure);
   console.log(`Found ${filePaths.length} files in repository`);
 
-  // Initialize wiki generator
-  const wikiGenerator = new WikiGenerator(query, config);
+  // Initialize wiki generator with appropriate query function
+  const wikiGenerator = new WikiGenerator(queryFn, config);
 
   // Generate wiki documentation
   console.log('\nGenerating wiki documentation...');
@@ -103,6 +111,8 @@ async function main() {
       token: config.githubToken,
       defaultBranch: config.wikiRepoBranch,
       commitMessage: config.wikiCommitMessage,
+      mode: config.wikiRepoMode,
+      shallow: config.wikiRepoShallow,
     });
 
     await wikiWriter.writeDocumentation(allDocs);

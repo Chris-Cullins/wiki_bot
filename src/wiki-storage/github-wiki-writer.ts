@@ -1,10 +1,9 @@
-import { execFile } from 'child_process';
-import { existsSync } from 'fs';
-import { mkdir, writeFile } from 'fs/promises';
-import { dirname, join, resolve } from 'path';
-import { promisify } from 'util';
-
-const execFileAsync = promisify(execFile);
+import { writeFile } from 'fs/promises';
+import { join, resolve } from 'path';
+import {
+  GitRepositoryManager,
+  type RepositoryMode,
+} from './git-repository-manager.js';
 
 export interface GitHubWikiWriterOptions {
   /** Remote git URL for the wiki repository */
@@ -17,6 +16,10 @@ export interface GitHubWikiWriterOptions {
   defaultBranch?: string;
   /** Commit message to use when updates are detected */
   commitMessage?: string;
+  /** Repository management mode (defaults to 'incremental') */
+  mode?: RepositoryMode;
+  /** Use shallow clone for faster initial setup */
+  shallow?: boolean;
 }
 
 /**
@@ -24,14 +27,21 @@ export interface GitHubWikiWriterOptions {
  */
 export class GitHubWikiWriter {
   private readonly _localPath: string;
-  private readonly _defaultBranch: string;
   private readonly _commitMessage: string;
-  private _prepared = false;
+  private readonly _repoManager: GitRepositoryManager;
 
   constructor(private readonly _options: GitHubWikiWriterOptions) {
     this._localPath = resolve(_options.localPath);
-    this._defaultBranch = _options.defaultBranch ?? 'master';
     this._commitMessage = _options.commitMessage ?? 'Update wiki documentation';
+
+    this._repoManager = new GitRepositoryManager({
+      remoteUrl: _options.wikiRepoUrl,
+      localPath: this._localPath,
+      token: _options.token,
+      branch: _options.defaultBranch ?? 'master',
+      mode: _options.mode ?? 'incremental',
+      shallow: _options.shallow ?? false,
+    });
   }
 
   /**
@@ -43,65 +53,23 @@ export class GitHubWikiWriter {
       return;
     }
 
-    await this.prepareRepository();
+    // Prepare repository (clone or update based on mode)
+    await this._repoManager.prepare();
 
+    // Check repository status before writing
+    const status = await this._repoManager.status();
+    if (!status.clean) {
+      console.warn(
+        `Warning: Wiki repository has uncommitted changes:\n${status.uncommittedChanges.join('\n')}`,
+      );
+    }
+
+    // Write documentation files
     await this.writePages(pages);
     await this.writeSidebar(pages);
 
+    // Commit and push if there are changes
     await this.commitAndPush();
-  }
-
-  /**
-   * Ensure the wiki repository exists locally and is up to date
-   */
-  private async prepareRepository(): Promise<void> {
-    if (this._prepared) {
-      return;
-    }
-
-    const gitDir = join(this._localPath, '.git');
-
-    if (!existsSync(gitDir)) {
-      await this.cloneRepository();
-    } else {
-      await this.updateRepository();
-    }
-
-    this._prepared = true;
-  }
-
-  /**
-   * Clone the wiki repository from GitHub
-   */
-  private async cloneRepository(): Promise<void> {
-    const url = this.buildAuthUrl();
-    const parentDir = dirname(this._localPath);
-
-    await mkdir(parentDir, { recursive: true });
-
-    await this.runGit(['clone', url, this._localPath], { cwd: parentDir, sanitize: true });
-    await this.checkoutDefaultBranch();
-  }
-
-  /**
-   * Fetch the latest changes from the remote wiki repository
-   */
-  private async updateRepository(): Promise<void> {
-    await this.runGit(['fetch', 'origin']);
-    await this.checkoutDefaultBranch();
-    await this.runGit(['reset', '--hard', `origin/${this._defaultBranch}`], { sanitize: true });
-  }
-
-  /**
-   * Force the working tree onto the target branch to keep it aligned with remote
-   */
-  private async checkoutDefaultBranch(): Promise<void> {
-    const { stdout } = await this.runGit(['rev-parse', '--abbrev-ref', 'HEAD']);
-    const currentBranch = stdout.trim();
-
-    if (currentBranch !== this._defaultBranch) {
-      await this.runGit(['checkout', this._defaultBranch], { allowFailure: true, sanitize: true });
-    }
   }
 
   /**
@@ -130,26 +98,15 @@ export class GitHubWikiWriter {
    * Stage, commit, and push wiki updates
    */
   private async commitAndPush(): Promise<void> {
-    const status = await this.runGit(['status', '--porcelain']);
-    if (!status.stdout.trim()) {
+    const committed = await this._repoManager.commit(this._commitMessage);
+
+    if (!committed) {
       console.log('Wiki already up to date; no changes to push');
       return;
     }
 
-    await this.runGit(['add', '.']);
-
-    try {
-      await this.runGit(['commit', '-m', this._commitMessage]);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes('nothing to commit')) {
-        console.log('No commit created; working tree clean after staging');
-      } else {
-        throw error;
-      }
-    }
-
-    await this.runGit(['push', 'origin', `HEAD:${this._defaultBranch}`], { sanitize: true });
+    await this._repoManager.push();
+    console.log('Wiki changes pushed successfully');
   }
 
   /**
@@ -195,65 +152,6 @@ export class GitHubWikiWriter {
     ordered.push(...rest);
 
     return ordered;
-  }
-
-  /**
-   * Execute a git command with optional specialised handling
-   */
-  private async runGit(
-    args: string[],
-    options?: { cwd?: string; allowFailure?: boolean; sanitize?: boolean },
-  ): Promise<{ stdout: string; stderr: string }> {
-    const cwd = options?.cwd ?? this._localPath;
-
-    try {
-      const result = await execFileAsync('git', args, {
-        cwd,
-        env: {
-          ...process.env,
-          GIT_TERMINAL_PROMPT: '0',
-        },
-        maxBuffer: 10 * 1024 * 1024,
-      });
-
-      return { stdout: result.stdout, stderr: result.stderr };
-    } catch (error) {
-      if (options?.allowFailure) {
-        return { stdout: '', stderr: '' };
-      }
-
-      const commandText = options?.sanitize ? this.sanitiseGitArgs(args) : args.join(' ');
-      throw new Error(`git ${commandText} failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * Build the authenticated URL used for clone/push commands
-   */
-  private buildAuthUrl(): string {
-    const { wikiRepoUrl, token } = this._options;
-
-    if (!token || !wikiRepoUrl.startsWith('http')) {
-      return wikiRepoUrl;
-    }
-
-    try {
-      const url = new URL(wikiRepoUrl);
-      url.username = 'x-access-token';
-      url.password = token;
-      return url.toString();
-    } catch {
-      return wikiRepoUrl;
-    }
-  }
-
-  /**
-   * Redact credentials when reporting git commands
-   */
-  private sanitiseGitArgs(args: string[]): string {
-    return args
-      .map((arg) => (arg.includes('://') ? '<redacted-url>' : arg))
-      .join(' ');
   }
 }
 

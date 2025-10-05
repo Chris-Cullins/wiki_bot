@@ -1,3 +1,5 @@
+import type { RepositoryMode } from './wiki-storage/git-repository-manager.js';
+
 /**
  * Configuration management for the wiki bot
  */
@@ -20,16 +22,30 @@ export interface Config {
   wikiRepoBranch?: string;
   /** Optional override for wiki commit message */
   wikiCommitMessage?: string;
+  /** Repository management mode (fresh, incremental, or reuse-or-clone) */
+  wikiRepoMode?: RepositoryMode;
+  /** Use shallow clone for faster initial setup */
+  wikiRepoShallow?: boolean;
+  /** Enable test mode to skip Agent SDK calls (saves API costs) */
+  testMode?: boolean;
 }
 
 /**
  * Load configuration from environment variables
  */
 export function loadConfig(): Config {
-  const apiKey = process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_API_KEY;
+  const testMode = process.env.TEST_MODE === 'true';
+  const apiKey = process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_API_KEY || (testMode ? 'test-mode-key' : '');
 
-  if (!apiKey) {
+  if (!apiKey && !testMode) {
     throw new Error('ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY environment variable is required');
+  }
+
+  // Parse repository mode from environment
+  const rawMode = process.env.WIKI_REPO_MODE?.toLowerCase();
+  let wikiRepoMode: RepositoryMode | undefined;
+  if (rawMode === 'fresh' || rawMode === 'incremental' || rawMode === 'reuse-or-clone') {
+    wikiRepoMode = rawMode;
   }
 
   return {
@@ -42,5 +58,8 @@ export function loadConfig(): Config {
     wikiRepoPath: process.env.GITHUB_WIKI_PATH || process.env.WIKI_REPO_PATH,
     wikiRepoBranch: process.env.GITHUB_WIKI_BRANCH,
     wikiCommitMessage: process.env.GITHUB_WIKI_COMMIT_MESSAGE,
+    wikiRepoMode,
+    wikiRepoShallow: process.env.WIKI_REPO_SHALLOW === 'true',
+    testMode,
   };
 }

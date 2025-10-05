@@ -109,8 +109,9 @@ export class WikiGenerator {
     try {
       const areas = JSON.parse(response);
       return Array.isArray(areas) ? areas : [];
-    } catch {
+    } catch (error) {
       console.warn('Failed to parse architectural areas, using fallback');
+      console.warn('Response was:', response.substring(0, 200));
       return [];
     }
   }
