@@ -10,6 +10,9 @@ import { join } from 'path';
  * Main entry point for the wiki bot application
  */
 async function main() {
+
+  console.log('Initializing Wiki Bot...');
+
   // Load configuration
   const config = loadConfig();
 
@@ -24,13 +27,11 @@ async function main() {
     process.env.ANTHROPIC_BASE_URL = config.baseURL;
   }
 
-  console.log('Initializing Wiki Bot...');
-
-  console.log('Wiki Bot initialized successfully');
-
   // Determine the repository path
   const repoPath = config.repoPath || process.cwd();
   console.log(`Using repository path: ${repoPath}`);
+
+  console.log('Wiki Bot initialized successfully');
 
   // Crawl the repository
   console.log('Crawling repository structure...');
@@ -47,15 +48,15 @@ async function main() {
 
   // Step 1: Generate Home page
   const homePage = await wikiGenerator.generateHomePage(repoStructure);
-  console.log('✓ Home page generated');
+  console.log(' Home page generated');
 
   // Step 2: Generate architectural overview
   const archOverview = await wikiGenerator.generateArchitecturalOverview(repoStructure);
-  console.log('✓ Architectural overview generated');
+  console.log(' Architectural overview generated');
 
   // Step 3: Extract architectural areas
   const areas = await wikiGenerator.extractArchitecturalAreas(archOverview);
-  console.log(`✓ Identified ${areas.length} architectural areas: ${areas.join(', ')}`);
+  console.log(` Identified ${areas.length} architectural areas: ${areas.join(', ')}`);
 
   // Step 4: Generate documentation for each area
   const areaDocumentation = new Map<string, string>();
@@ -75,9 +76,9 @@ async function main() {
       // Generate documentation for this area
       const doc = await wikiGenerator.generateAreaDocumentation(area, relevantFiles);
       areaDocumentation.set(area, doc);
-      console.log(`  ✓ Documentation generated for ${area}`);
+      console.log(`   Documentation generated for ${area}`);
     } else {
-      console.log(`  ⚠ No relevant files found for ${area}, skipping`);
+      console.log(`   No relevant files found for ${area}, skipping`);
     }
   }
 
@@ -88,7 +89,7 @@ async function main() {
     ...areaDocumentation,
   ]);
 
-  console.log('\n📚 Generated Documentation Pages:');
+  console.log('\n Generated Documentation Pages:');
   for (const [page, _content] of allDocs) {
     console.log(`  - ${page}`);
   }
@@ -105,7 +106,7 @@ async function main() {
     });
 
     await wikiWriter.writeDocumentation(allDocs);
-    console.log('✓ GitHub wiki updated successfully');
+    console.log(' GitHub wiki updated successfully');
   } else {
     console.log('\nNo GitHub wiki configuration found; skipping wiki write');
   }
