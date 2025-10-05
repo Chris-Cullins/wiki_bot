@@ -193,11 +193,16 @@ export class WikiGenerator {
   /**
    * Generate the Home page for the wiki
    */
-  async generateHomePage(repoStructure: FileNode): Promise<string> {
+  async generateHomePage(repoStructure: FileNode, existingDoc?: string): Promise<string> {
     console.log('Generating home page...');
 
     const structureText = this.formatRepoStructure(repoStructure);
-    const prompt = await loadPrompt('generate-home-page', { structureText });
+    const useIncremental = this._config.incrementalDocs && existingDoc !== undefined;
+    const promptName = useIncremental ? 'update-home-page' : 'generate-home-page';
+    const prompt = await loadPrompt(promptName, {
+      structureText,
+      existingDoc: existingDoc ?? '',
+    });
 
     const query = this._query({
       prompt,
@@ -215,11 +220,21 @@ export class WikiGenerator {
   /**
    * Analyze and document the architectural slices of the application
    */
-  async generateArchitecturalOverview(repoStructure: FileNode): Promise<string> {
+  async generateArchitecturalOverview(
+    repoStructure: FileNode,
+    existingDoc?: string,
+  ): Promise<string> {
     console.log('Generating architectural overview...');
 
     const structureText = this.formatRepoStructure(repoStructure);
-    const prompt = await loadPrompt('generate-architectural-overview', { structureText });
+    const useIncremental = this._config.incrementalDocs && existingDoc !== undefined;
+    const promptName = useIncremental
+      ? 'update-architectural-overview'
+      : 'generate-architectural-overview';
+    const prompt = await loadPrompt(promptName, {
+      structureText,
+      existingDoc: existingDoc ?? '',
+    });
 
     const query = this._query({
       prompt,
@@ -322,6 +337,7 @@ export class WikiGenerator {
   async generateAreaDocumentation(
     area: string,
     relevantFiles: string[],
+    existingDoc?: string,
   ): Promise<string> {
     console.log(`Generating documentation for area: ${area}`);
 
@@ -334,9 +350,13 @@ export class WikiGenerator {
       fileContentText += `\n--- ${filePath} ---\n${content}\n`;
     }
 
-    const prompt = await loadPrompt('generate-area-documentation', {
+    const promptName = this._config.incrementalDocs && existingDoc !== undefined
+      ? 'update-area-documentation'
+      : 'generate-area-documentation';
+    const prompt = await loadPrompt(promptName, {
       area,
       fileContentText,
+      existingDoc: existingDoc ?? '',
     });
 
     const query = this._query({

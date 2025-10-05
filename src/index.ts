@@ -81,6 +81,18 @@ async function main() {
       .trim();
   };
 
+  const loadExistingDoc = async (pageName: string): Promise<string | undefined> => {
+    if (!config.incrementalDocs || !wikiWriter) {
+      return undefined;
+    }
+    try {
+      return await wikiWriter.readPage(pageName);
+    } catch (error) {
+      console.warn(` Failed to read existing wiki page "${pageName}":`, error);
+      return undefined;
+    }
+  };
+
   const persistDocs = async (stage: string) => {
     if (!wikiWriter) {
       return;
@@ -94,14 +106,21 @@ async function main() {
   console.log('\nGenerating wiki documentation...');
 
   // Step 1: Generate Home page
-  const homePage = await wikiGenerator.generateHomePage(repoStructure);
-  allDocs.set(sanitizePageName('Home'), homePage);
+  const homePageName = sanitizePageName('Home');
+  const existingHome = await loadExistingDoc(homePageName);
+  const homePage = await wikiGenerator.generateHomePage(repoStructure, existingHome);
+  allDocs.set(homePageName, homePage);
   console.log(' Home page generated');
   await persistDocs('home page');
 
   // Step 2: Generate architectural overview
-  const archOverview = await wikiGenerator.generateArchitecturalOverview(repoStructure);
-  allDocs.set(sanitizePageName('Architecture'), archOverview);
+  const architecturePageName = sanitizePageName('Architecture');
+  const existingArchitecture = await loadExistingDoc(architecturePageName);
+  const archOverview = await wikiGenerator.generateArchitecturalOverview(
+    repoStructure,
+    existingArchitecture,
+  );
+  allDocs.set(architecturePageName, archOverview);
   console.log(' Architectural overview generated');
   await persistDocs('architectural overview');
 
@@ -121,8 +140,13 @@ async function main() {
     console.log(`  - Found ${relevantFiles.length} relevant files`);
 
     if (relevantFiles.length > 0) {
-      const doc = await wikiGenerator.generateAreaDocumentation(area, relevantFiles);
       const pageName = sanitizePageName(area);
+      const existingAreaDoc = await loadExistingDoc(pageName);
+      const doc = await wikiGenerator.generateAreaDocumentation(
+        area,
+        relevantFiles,
+        existingAreaDoc,
+      );
       allDocs.set(pageName, doc);
       console.log(`   Documentation generated for ${area}`);
       await persistDocs(`area ${area}`);

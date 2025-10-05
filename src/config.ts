@@ -28,6 +28,8 @@ export interface Config {
   wikiRepoShallow?: boolean;
   /** Enable test mode to skip Agent SDK calls (saves API costs) */
   testMode?: boolean;
+  /** Enable incremental documentation updates (reuse existing wiki content) */
+  incrementalDocs?: boolean;
 }
 
 /**
@@ -61,5 +63,6 @@ export function loadConfig(): Config {
     wikiRepoMode,
     wikiRepoShallow: process.env.WIKI_REPO_SHALLOW === 'true',
     testMode,
+    incrementalDocs: process.env.INCREMENTAL_DOCS === 'true',
   };
 }

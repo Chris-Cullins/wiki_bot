@@ -1,4 +1,4 @@
-import { writeFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import {
   GitRepositoryManager,
@@ -29,6 +29,7 @@ export class GitHubWikiWriter {
   private readonly _localPath: string;
   private readonly _commitMessage: string;
   private readonly _repoManager: GitRepositoryManager;
+  private _prepared = false;
 
   constructor(private readonly _options: GitHubWikiWriterOptions) {
     this._localPath = resolve(_options.localPath);
@@ -53,8 +54,7 @@ export class GitHubWikiWriter {
       return;
     }
 
-    // Prepare repository (clone or update based on mode)
-    await this._repoManager.prepare();
+    await this.ensurePrepared();
 
     // Check repository status before writing
     const status = await this._repoManager.status();
@@ -64,34 +64,72 @@ export class GitHubWikiWriter {
       );
     }
 
-    // Write documentation files
-    await this.writePages(pages);
-    await this.writeSidebar(pages);
+    const pagesUpdated = await this.writePages(pages);
+    const sidebarUpdated = await this.writeSidebar(pages);
 
-    // Commit and push if there are changes
+    if (!pagesUpdated && !sidebarUpdated) {
+      console.log(' Wiki already up to date; no changes to write');
+      return;
+    }
+
     await this.commitAndPush();
+  }
+
+  async readPage(pageName: string): Promise<string | undefined> {
+    await this.ensurePrepared();
+    const fileName = this.mapPageNameToFile(pageName);
+    const filePath = join(this._localPath, `${fileName}.md`);
+    try {
+      return await readFile(filePath, 'utf-8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return undefined;
+      }
+      throw error;
+    }
+  }
+
+  private async ensurePrepared(): Promise<void> {
+    if (this._prepared) {
+      return;
+    }
+    await this._repoManager.prepare();
+    this._prepared = true;
   }
 
   /**
    * Persist each generated page into the wiki repository
    */
-  private async writePages(pages: Map<string, string>): Promise<void> {
+  private async writePages(pages: Map<string, string>): Promise<boolean> {
+    let updated = false;
     for (const [pageName, content] of pages) {
       const fileName = this.mapPageNameToFile(pageName);
       const filePath = join(this._localPath, `${fileName}.md`);
-      await writeFile(filePath, ensureTrailingNewline(content), 'utf-8');
+      const normalizedContent = ensureTrailingNewline(content);
+      if (!(await this.hasContentChanged(filePath, normalizedContent))) {
+        continue;
+      }
+      await writeFile(filePath, normalizedContent, 'utf-8');
+      console.log(`  - Updated wiki page: ${pageName}`);
+      updated = true;
     }
+    return updated;
   }
 
   /**
    * Generate a simple sidebar for quick navigation between pages
    */
-  private async writeSidebar(pages: Map<string, string>): Promise<void> {
+  private async writeSidebar(pages: Map<string, string>): Promise<boolean> {
     const orderedPages = this.orderPagesForSidebar(pages);
     const sidebarLines = orderedPages.map((name) => `* [[${name}]]`);
     const sidebarContent = `${sidebarLines.join('\n')}\n`;
     const sidebarPath = join(this._localPath, '_Sidebar.md');
+    if (!(await this.hasContentChanged(sidebarPath, sidebarContent))) {
+      return false;
+    }
     await writeFile(sidebarPath, sidebarContent, 'utf-8');
+    console.log('  - Updated wiki sidebar');
+    return true;
   }
 
   /**
@@ -152,6 +190,25 @@ export class GitHubWikiWriter {
     ordered.push(...rest);
 
     return ordered;
+  }
+
+  private async hasContentChanged(filePath: string, newContent: string): Promise<boolean> {
+    const normalizedNew = this.normalizeContent(newContent);
+    try {
+      const existing = await readFile(filePath, 'utf-8');
+      const normalizedExisting = this.normalizeContent(existing);
+      return normalizedExisting !== normalizedNew;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return true;
+      }
+      console.warn(`  ! Failed to read existing wiki page ${filePath}:`, error);
+      return true;
+    }
+  }
+
+  private normalizeContent(content: string): string {
+    return ensureTrailingNewline(content).replace(/\r\n/g, '\n');
   }
 }
 
