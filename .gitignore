@@ -14,6 +14,7 @@ build/
 .env
 .env.local
 .env.*.local
+.env*
 
 # IDE
 .vscode/
@@ -30,3 +31,4 @@ coverage/
 # Misc
 *.log
 .cache/
+.wiki*
