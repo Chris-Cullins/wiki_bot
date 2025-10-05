@@ -3,6 +3,8 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { loadConfig } from './config.js';
 import { RepoCrawler } from './repo-crawler.js';
 import { WikiGenerator } from './wiki-generator.js';
+import { GitHubWikiWriter } from './wiki-storage/github-wiki-writer.js';
+import { join } from 'path';
 
 /**
  * Main entry point for the wiki bot application
@@ -11,7 +13,19 @@ async function main() {
   // Load configuration
   const config = loadConfig();
 
+  // Ensure the Claude Agent CLI can read authentication details
+  if (!process.env.ANTHROPIC_API_KEY) {
+    process.env.ANTHROPIC_API_KEY = config.apiKey;
+  }
+  if (!process.env.ANTHROPIC_AUTH_TOKEN) {
+    process.env.ANTHROPIC_AUTH_TOKEN = config.apiKey;
+  }
+  if (config.baseURL && !process.env.ANTHROPIC_BASE_URL) {
+    process.env.ANTHROPIC_BASE_URL = config.baseURL;
+  }
+
   console.log('Initializing Wiki Bot...');
+
   console.log('Wiki Bot initialized successfully');
 
   // Determine the repository path
@@ -74,11 +88,26 @@ async function main() {
     ...areaDocumentation,
   ]);
 
-  // TODO: Save documentation to wiki (Phase 2)
-  // For now, just log what we generated
   console.log('\n📚 Generated Documentation Pages:');
   for (const [page, _content] of allDocs) {
     console.log(`  - ${page}`);
+  }
+
+  if (config.wikiRepoUrl) {
+    console.log('\nWriting documentation to GitHub wiki...');
+
+    const wikiWriter = new GitHubWikiWriter({
+      wikiRepoUrl: config.wikiRepoUrl,
+      localPath: config.wikiRepoPath || join(repoPath, '.wiki'),
+      token: config.githubToken,
+      defaultBranch: config.wikiRepoBranch,
+      commitMessage: config.wikiCommitMessage,
+    });
+
+    await wikiWriter.writeDocumentation(allDocs);
+    console.log('✓ GitHub wiki updated successfully');
+  } else {
+    console.log('\nNo GitHub wiki configuration found; skipping wiki write');
   }
 
   // TODO: Implement CI integration mode
