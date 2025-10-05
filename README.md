@@ -1,5 +1,3 @@
-# W.I.P - Still tweaking the quality of the output
-
 # Wiki Bot
 
 An AI-powered documentation generator that automatically creates comprehensive GitHub wiki documentation for codebases using the Anthropic Claude Agent SDK.
