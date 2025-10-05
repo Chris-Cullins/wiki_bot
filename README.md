@@ -1,3 +1,5 @@
+# W.I.P - Not ready for usage yet, no matter what Claude says
+
 # Wiki Bot
 
 An AI-powered documentation generator that automatically creates comprehensive GitHub wiki documentation for codebases using the Anthropic Claude Agent SDK.
