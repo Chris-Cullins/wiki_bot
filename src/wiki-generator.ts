@@ -1,4 +1,8 @@
-import type { Query } from '@anthropic-ai/claude-agent-sdk';
+import type {
+  Query,
+  SDKAssistantMessage,
+  SDKPartialAssistantMessage,
+} from '@anthropic-ai/claude-agent-sdk';
 import type { FileNode } from './repo-crawler.js';
 import type { Config } from './config.js';
 import { readFile } from 'fs/promises';
@@ -13,6 +17,126 @@ export class WikiGenerator {
     private _query: (params: { prompt: string; options?: any }) => Query,
     private _config: Config
   ) {}
+
+  private async collectResponseText(query: Query): Promise<string> {
+    let streamText = '';
+    let assistantText = '';
+    let mockText = '';
+
+    for await (const message of query) {
+      if (this.isMockAssistantMessage(message)) {
+        mockText += message.content;
+        continue;
+      }
+
+      if (this.isStreamEventMessage(message)) {
+        streamText += this.extractTextFromStreamEvent(message.event);
+        continue;
+      }
+
+      if (this.isSDKAssistantMessage(message)) {
+        assistantText += this.extractTextFromContentBlocks(message.message?.content);
+        continue;
+      }
+    }
+
+    if (streamText.trim().length > 0) {
+      return streamText;
+    }
+
+    if (assistantText.trim().length > 0) {
+      return assistantText;
+    }
+
+    return mockText;
+  }
+
+  private isMockAssistantMessage(message: unknown): message is { type: 'assistant'; content: string } {
+    return (
+      typeof message === 'object' &&
+      message !== null &&
+      (message as { type?: unknown }).type === 'assistant' &&
+      typeof (message as { content?: unknown }).content === 'string'
+    );
+  }
+
+  private isSDKAssistantMessage(message: unknown): message is SDKAssistantMessage {
+    return (
+      typeof message === 'object' &&
+      message !== null &&
+      (message as { type?: unknown }).type === 'assistant' &&
+      typeof (message as { message?: unknown }).message === 'object'
+    );
+  }
+
+  private isStreamEventMessage(message: unknown): message is SDKPartialAssistantMessage {
+    return (
+      typeof message === 'object' &&
+      message !== null &&
+      (message as { type?: unknown }).type === 'stream_event' &&
+      typeof (message as { event?: unknown }).event === 'object'
+    );
+  }
+
+  private extractTextFromContentBlocks(content: unknown): string {
+    if (!Array.isArray(content)) {
+      return '';
+    }
+
+    let text = '';
+    for (const block of content) {
+      if (this.isTextBlock(block)) {
+        text += block.text;
+      }
+    }
+
+    return text;
+  }
+
+  private extractTextFromStreamEvent(event: unknown): string {
+    if (typeof event !== 'object' || event === null) {
+      return '';
+    }
+
+    const eventType = (event as { type?: unknown }).type;
+
+    if (eventType === 'content_block_delta') {
+      const delta = (event as { delta?: unknown }).delta;
+      if (this.isTextDelta(delta)) {
+        return delta.text;
+      }
+    }
+
+    if (eventType === 'content_block_start') {
+      const contentBlock = (event as { content_block?: unknown }).content_block;
+      if (Array.isArray(contentBlock)) {
+        return this.extractTextFromContentBlocks(contentBlock);
+      }
+      if (contentBlock) {
+        return this.extractTextFromContentBlocks([contentBlock]);
+      }
+    }
+
+    return '';
+  }
+
+  private isTextBlock(block: unknown): block is { type: 'text'; text: string } {
+    return (
+      typeof block === 'object' &&
+      block !== null &&
+      (block as { type?: unknown }).type === 'text' &&
+      typeof (block as { text?: unknown }).text === 'string'
+    );
+  }
+
+  private isTextDelta(delta: unknown): delta is { type: 'text_delta'; text: string } {
+    return (
+      typeof delta === 'object' &&
+      delta !== null &&
+      (delta as { type?: unknown }).type === 'text_delta' &&
+      typeof (delta as { text?: unknown }).text === 'string'
+    );
+  }
 
   /**
    * Convert FileNode tree to a readable string representation
@@ -46,13 +170,7 @@ export class WikiGenerator {
       },
     });
 
-    // Collect the response from the agent
-    let response = '';
-    for await (const message of query) {
-      if (message.type === 'assistant' && 'content' in message) {
-        response += message.content;
-      }
-    }
+    const response = await this.collectResponseText(query);
 
     return response || '# Repository Overview\n\nUnable to generate home page.';
   }
@@ -74,13 +192,7 @@ export class WikiGenerator {
       },
     });
 
-    // Collect the response from the agent
-    let response = '';
-    for await (const message of query) {
-      if (message.type === 'assistant' && 'content' in message) {
-        response += message.content;
-      }
-    }
+    const response = await this.collectResponseText(query);
 
     return response || '# Architectural Overview\n\nUnable to generate architectural overview.';
   }
@@ -99,12 +211,7 @@ export class WikiGenerator {
       },
     });
 
-    let response = '';
-    for await (const message of query) {
-      if (message.type === 'assistant' && 'content' in message) {
-        response += message.content;
-      }
-    }
+    const response = await this.collectResponseText(query);
 
     try {
       const areas = JSON.parse(response);
@@ -139,12 +246,7 @@ export class WikiGenerator {
       },
     });
 
-    let response = '';
-    for await (const message of query) {
-      if (message.type === 'assistant' && 'content' in message) {
-        response += message.content;
-      }
-    }
+    const response = await this.collectResponseText(query);
 
     try {
       const files = JSON.parse(response);
@@ -208,12 +310,7 @@ export class WikiGenerator {
       },
     });
 
-    let response = '';
-    for await (const message of query) {
-      if (message.type === 'assistant' && 'content' in message) {
-        response += message.content;
-      }
-    }
+    const response = await this.collectResponseText(query);
 
     return response || `# ${area}\n\nUnable to generate documentation for this area.`;
   }
