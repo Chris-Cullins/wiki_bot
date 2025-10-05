@@ -10,8 +10,12 @@ echo "This will:"
 echo "  ✓ Crawl the repository structure"
 echo "  ✓ Generate mock wiki documentation"
 echo "  ✓ Skip all Agent SDK API calls (saves money!)"
-echo "  ✓ Optionally write to wiki repo (if configured)"
+echo "  ✓ Write to wiki_bot's GitHub wiki"
 echo ""
 
 # Run with test mode enabled
-TEST_MODE=true npm start
+# Using the wiki_bot repo's actual wiki for testing
+TEST_MODE=true \
+WIKI_REPO_URL=https://github.com/Chris-Cullins/wiki_bot.wiki.git \
+WIKI_REPO_MODE=fresh \
+npm start
