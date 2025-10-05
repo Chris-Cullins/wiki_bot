@@ -302,7 +302,32 @@ export class WikiGenerator {
 
     try {
       const files = JSON.parse(response);
-      return Array.isArray(files) ? files : [];
+      if (!Array.isArray(files)) {
+        return [];
+      }
+
+      const knownFiles = new Set(allFiles);
+      const seen = new Set<string>();
+      const relevant: string[] = [];
+
+      for (const entry of files) {
+        if (typeof entry !== 'string') {
+          continue;
+        }
+        if (!knownFiles.has(entry)) {
+          console.warn(
+            `Ignoring non-existent file path "${entry}" for area "${area}"`,
+          );
+          continue;
+        }
+        if (seen.has(entry)) {
+          continue;
+        }
+        seen.add(entry);
+        relevant.push(entry);
+      }
+
+      return relevant;
     } catch {
       console.warn(`Failed to parse relevant files for area "${area}"`);
       return [];
