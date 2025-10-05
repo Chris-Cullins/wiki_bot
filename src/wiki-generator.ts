@@ -18,6 +18,17 @@ export class WikiGenerator {
     private _config: Config
   ) {}
 
+  private createQuery(prompt: string): Query {
+    return this._query({
+      prompt,
+      options: {
+        apiKey: this._config.apiKey,
+        baseURL: this._config.baseURL,
+        systemPrompt: { type: 'preset', preset: 'claude_code' },
+      },
+    });
+  }
+
   private async collectResponseText(query: Query): Promise<string> {
     let streamText = '';
     let assistantText = '';
@@ -204,13 +215,7 @@ export class WikiGenerator {
       existingDoc: existingDoc ?? '',
     });
 
-    const query = this._query({
-      prompt,
-      options: {
-        apiKey: this._config.apiKey,
-        baseURL: this._config.baseURL,
-      },
-    });
+    const query = this.createQuery(prompt);
 
     const response = this.stripFenceWrappers(await this.collectResponseText(query));
 
@@ -236,13 +241,7 @@ export class WikiGenerator {
       existingDoc: existingDoc ?? '',
     });
 
-    const query = this._query({
-      prompt,
-      options: {
-        apiKey: this._config.apiKey,
-        baseURL: this._config.baseURL,
-      },
-    });
+    const query = this.createQuery(prompt);
 
     const response = this.stripFenceWrappers(await this.collectResponseText(query));
 
@@ -255,13 +254,7 @@ export class WikiGenerator {
   async extractArchitecturalAreas(architecturalOverview: string): Promise<string[]> {
     const prompt = await loadPrompt('extract-architectural-areas', { architecturalOverview });
 
-    const query = this._query({
-      prompt,
-      options: {
-        apiKey: this._config.apiKey,
-        baseURL: this._config.baseURL,
-      },
-    });
+    const query = this.createQuery(prompt);
 
     const response = this.stripFenceWrappers(await this.collectResponseText(query));
 
@@ -290,13 +283,7 @@ export class WikiGenerator {
       allFiles: allFiles.join('\n'),
     });
 
-    const query = this._query({
-      prompt,
-      options: {
-        apiKey: this._config.apiKey,
-        baseURL: this._config.baseURL,
-      },
-    });
+    const query = this.createQuery(prompt);
 
     const response = this.stripFenceWrappers(await this.collectResponseText(query));
 
@@ -384,13 +371,7 @@ export class WikiGenerator {
       existingDoc: existingDoc ?? '',
     });
 
-    const query = this._query({
-      prompt,
-      options: {
-        apiKey: this._config.apiKey,
-        baseURL: this._config.baseURL,
-      },
-    });
+    const query = this.createQuery(prompt);
 
     const response = this.stripFenceWrappers(await this.collectResponseText(query));
 
