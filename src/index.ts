@@ -3,7 +3,7 @@ import { loadConfig } from './config.js';
 import { RepoCrawler } from './repo-crawler.js';
 import { WikiGenerator } from './wiki-generator.js';
 import { GitHubWikiWriter } from './github/github-wiki-writer.js';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { createQueryFunction } from './query-factory.js';
 
 /**
@@ -16,7 +16,10 @@ async function main() {
   // Load configuration
   const config = loadConfig();
 
-  const queryFn = createQueryFunction(config);
+  // Determine the repository path
+  const repoPath = config.repoPath ? resolve(config.repoPath) : process.cwd();
+
+  const queryFn = createQueryFunction(config, repoPath);
 
   if (config.testMode) {
     console.log('⚠️  TEST MODE ENABLED - Using mock Agent SDK (no API calls will be made)');
@@ -37,8 +40,6 @@ async function main() {
     }
   }
 
-  // Determine the repository path
-  const repoPath = config.repoPath || process.cwd();
   console.log(`Using repository path: ${repoPath}`);
 
   console.log('Wiki Bot initialized successfully');

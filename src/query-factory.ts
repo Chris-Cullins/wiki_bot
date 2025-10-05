@@ -11,14 +11,14 @@ const CLAUDE_CLI_SYSTEM_PROMPT =
   'Always respond with complete Markdown documents that include headings, overviews, ' +
   'summaries, and contextually rich prose. Never return raw directory listings or commentary about your process.';
 
-export function createQueryFunction(config: Config): QueryFunction {
+export function createQueryFunction(config: Config, repoPath: string): QueryFunction {
   if (config.testMode) {
     return createMockQuery();
   }
 
   switch (config.llmProvider) {
     case 'claude-cli':
-      return createClaudeCliQuery();
+      return createClaudeCliQuery(repoPath);
     case 'codex-cli':
       return createCodexCliQuery();
     case 'agent-sdk':
@@ -27,12 +27,12 @@ export function createQueryFunction(config: Config): QueryFunction {
   }
 }
 
-function createClaudeCliQuery(): QueryFunction {
+function createClaudeCliQuery(repoPath: string): QueryFunction {
   return ({ prompt }: { prompt: string; options?: any }) => {
     const iterator = (async function* () {
       const { stdout } = await runCommand(
         'claude',
-        ['-p', '--append-system-prompt', CLAUDE_CLI_SYSTEM_PROMPT],
+        ['-p', '--append-system-prompt', CLAUDE_CLI_SYSTEM_PROMPT, '--add-dir', repoPath],
         prompt,
       );
       yield {

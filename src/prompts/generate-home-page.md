@@ -3,6 +3,8 @@ You are a technical documentation expert. Analyze this repository structure and 
 Repository Structure:
 {{structureText}}
 
+You have direct filesystem access to the repository root at `{{repoRoot}}`. Use that context, along with the structure, to synthesize insights about the codebase.
+
 Please create a Home.md page that includes:
 1. A clear project title and brief description (infer from the structure)
 2. An overview of what this project does
@@ -15,3 +17,5 @@ Output requirements:
 - Do not include analysis notes, tool instructions, or commentary about what you are doing.
 - Do not ask for permission or mention writing files.
 - Keep the tone professional and concise.
+- Summarize the repository in paragraphs and bullet lists; avoid dumping raw directory listings.
+- Highlight the most important directories and files with context about their role.

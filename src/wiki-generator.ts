@@ -6,7 +6,7 @@ import type {
 import type { FileNode } from './repo-crawler.js';
 import type { Config } from './config.js';
 import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { loadPrompt } from './prompt-loader.js';
 
 /**
@@ -233,11 +233,13 @@ export class WikiGenerator {
     console.log('Generating home page...');
 
     const structureText = this.formatRepoStructure(repoStructure);
+    const repoRoot = this._config.repoPath ? resolve(this._config.repoPath) : process.cwd();
     const useIncremental = this._config.incrementalDocs && existingDoc !== undefined;
     const promptName = useIncremental ? 'update-home-page' : 'generate-home-page';
     const prompt = await loadPrompt(promptName, {
       structureText,
       existingDoc: existingDoc ?? '',
+      repoRoot,
     });
 
     const query = this.createQuery(prompt);
@@ -380,7 +382,7 @@ export class WikiGenerator {
   ): Promise<string> {
     console.log(`Generating documentation for area: ${area}`);
 
-    const repoPath = this._config.repoPath || process.cwd();
+    const repoPath = this._config.repoPath ? resolve(this._config.repoPath) : process.cwd();
     const fileContents = await this.readFileContents(repoPath, relevantFiles);
 
     // Format file contents for the prompt
