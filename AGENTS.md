@@ -39,9 +39,10 @@ npm start
 - API access is required via `ANTHROPIC_AUTH_TOKEN` or `ANTHROPIC_API_KEY` unless using the Codex CLI provider.
 - Optional overrides:
   - `ANTHROPIC_BASE_URL` for custom endpoints.
-  - `REPO_PATH` to target a specific local repository (defaults to CWD).
+ - `REPO_PATH` to target a specific local repository (defaults to CWD).
   - `REPO_URL` for the canonical GitHub location.
   - `DEBUG=true` to emit detailed prompt/response logging during execution.
+- Repo crawler automatically skips generated wiki workspaces (`.wiki/`, `.wiki.ao/`), other build artifacts, and files ignored via `.gitignore` to avoid leaking derived content.
 - Environment variables can be exported directly or stored in a `.env` derived from `.env.example`.
 
 ## Roadmap

@@ -2,6 +2,13 @@
 
 This document tracks all pending features and improvements for the wiki bot application.
 
+## High Priority TODOs
+
+- [ ] Add logging of agent output for debugging so we can persist raw prompts/responses when diagnosing issues.
+- [ ] Add a "Depth" configuration toggle to control how detailed the wiki pages should become for each area.
+- [ ] Ensure git wiki modes provide existing page content to the agent during "update" operations.
+- [ ] Add a CLI flag that targets a specific file for regeneration when a page needs to be recreated.
+
 ## Phase 1: Core Wiki Generation ✅
 
 ### 1.1 Implement Home Page Generation

@@ -116,7 +116,7 @@ Wiki Bot follows a multi-phase workflow:
 
 - **`src/index.ts`**: Entry point that orchestrates the documentation workflow
 - **`src/wiki-generator.ts`**: Central class coordinating all documentation generation using Claude Agent SDK
-- **`src/repo-crawler.ts`**: Filesystem scanner that builds hierarchical repository structure
+- **`src/repo-crawler.ts`**: Filesystem scanner that builds hierarchical repository structure (skips generated folders like `.wiki/` and `.wiki.ao/`, and respects `.gitignore` rules)
 - **`src/prompt-loader.ts`**: Template system for loading and injecting variables into prompts
 - **`src/prompts/`**: Markdown files containing prompts for each generation task
 - **`src/config.ts`**: Environment configuration and validation

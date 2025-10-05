@@ -10,13 +10,20 @@
     "dev": "tsx src/index.ts",
     "type-check": "tsc --noEmit"
   },
-  "keywords": ["wiki", "documentation", "ai", "github", "agent"],
+  "keywords": [
+    "wiki",
+    "documentation",
+    "ai",
+    "github",
+    "agent"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",
     "@anthropic-ai/sdk": "^0.38.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "ignore": "^7.0.5"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

@@ -1,7 +1,0 @@
-- [ ] Add logging of agent output for debugging
-- [ ] Add "Depth" configuration, how in depth the user wants the wiki page to go for that area.
-- [ ] Make sure git wiki modes tell agent what is currently existing for "update" mode. 
-- [x] maybe add codex exec or claude code -p support so people can use their subs instead of api costs.
-- [ ] Add ability to target a specific file for recreating in case of issues.
-  - Will be a CLI flag that passes in the path to the file you want to update
-- [x] add systemPrompt: { preset: "claude_code" } so the agent uses the claude code system prompt when doing it's work.
