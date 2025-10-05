@@ -24,8 +24,8 @@ async function main() {
     console.log(`Using LLM provider: ${config.llmProvider}`);
   }
 
-  // Ensure the Claude Agent CLI can read authentication details
-  if (config.llmProvider !== 'codex-cli' && config.llmProvider !== 'claude-cli') {
+  // Ensure the Claude Agent SDK can read authentication details when in use
+  if (config.llmProvider === 'agent-sdk') {
     if (config.apiKey && !process.env.ANTHROPIC_API_KEY) {
       process.env.ANTHROPIC_API_KEY = config.apiKey;
     }

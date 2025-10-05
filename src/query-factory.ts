@@ -6,6 +6,11 @@ import { createMockQuery } from './mock-agent-sdk.js';
 
 export type QueryFunction = (params: { prompt: string; options?: any }) => Query;
 
+const CLAUDE_CLI_SYSTEM_PROMPT =
+  'You are an expert technical writer generating polished GitHub wiki pages. ' +
+  'Always respond with complete Markdown documents that include headings, overviews, ' +
+  'summaries, and contextually rich prose. Never return raw directory listings or commentary about your process.';
+
 export function createQueryFunction(config: Config): QueryFunction {
   if (config.testMode) {
     return createMockQuery();
@@ -24,8 +29,12 @@ export function createQueryFunction(config: Config): QueryFunction {
 
 function createClaudeCliQuery(): QueryFunction {
   return ({ prompt }: { prompt: string; options?: any }) => {
-    const iterator = (async function*() {
-      const { stdout } = await runCommand('claude', ['-p'], prompt);
+    const iterator = (async function* () {
+      const { stdout } = await runCommand(
+        'claude',
+        ['-p', '--append-system-prompt', CLAUDE_CLI_SYSTEM_PROMPT],
+        prompt,
+      );
       yield {
         type: 'assistant' as const,
         content: stdout.trimEnd(),

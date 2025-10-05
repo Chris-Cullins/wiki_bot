@@ -58,7 +58,7 @@ export function loadConfig(): Config {
     process.env.ANTHROPIC_API_KEY ||
     (testMode ? 'test-mode-key' : '');
 
-  const requiresAnthropicKey = llmProvider !== 'codex-cli';
+  const requiresAnthropicKey = llmProvider === 'agent-sdk';
 
   if (!apiKey && !testMode && requiresAnthropicKey) {
     throw new Error('ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY environment variable is required');

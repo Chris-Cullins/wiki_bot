@@ -7,7 +7,7 @@ import type { FileNode } from './repo-crawler.js';
 import type { Config } from './config.js';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { loadPrompt } from './prompts/prompt-loader.js';
+import { loadPrompt } from './prompt-loader.js';
 
 /**
  * Generates wiki documentation for a repository
@@ -16,7 +16,7 @@ export class WikiGenerator {
   constructor(
     private _query: (params: { prompt: string; options?: any }) => Query,
     private _config: Config
-  ) {}
+  ) { }
 
   private createQuery(prompt: string): Query {
     return this._query({

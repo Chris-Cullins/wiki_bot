@@ -10,7 +10,7 @@ export function createMockQuery(): (params: { prompt: string; options?: any }) =
     const response = generateMockResponse(prompt);
 
     // Return an async iterator that yields the mock response
-    return (async function* () {
+    return (async function*() {
       yield {
         type: 'assistant' as const,
         content: response,
@@ -122,7 +122,7 @@ The codebase employs several design patterns:
       return JSON.stringify([
         'src/wiki-generator.ts',
         'src/repo-crawler.ts',
-        'src/prompts/prompt-loader.ts',
+        'src/prompt-loader.ts',
       ]);
     } else {
       return JSON.stringify(['src/index.ts', 'src/config.ts']);

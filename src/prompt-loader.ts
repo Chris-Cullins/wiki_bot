@@ -12,7 +12,7 @@ export async function loadPrompt(
   promptName: string,
   variables: Record<string, string> = {},
 ): Promise<string> {
-  const promptPath = join(__dirname, `${promptName}.md`);
+  const promptPath = join(__dirname, 'prompts', `${promptName}.md`);
   let prompt = await readFile(promptPath, 'utf-8');
 
   // Replace variables in the format {{variableName}}
