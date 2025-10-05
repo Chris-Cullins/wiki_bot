@@ -3,6 +3,7 @@ import { query as agentQuery } from '@anthropic-ai/claude-agent-sdk';
 import type { Query } from '@anthropic-ai/claude-agent-sdk';
 import type { Config } from './config.js';
 import { createMockQuery } from './mock-agent-sdk.js';
+import { DebugLogger } from './logging.js';
 
 export type QueryFunction = (params: { prompt: string; options?: any }) => Query;
 
@@ -11,30 +12,46 @@ const CLAUDE_CLI_SYSTEM_PROMPT =
   'Always respond with complete Markdown documents that include headings, overviews, ' +
   'summaries, and contextually rich prose. Never return raw directory listings or commentary about your process.';
 
-export function createQueryFunction(config: Config, repoPath: string): QueryFunction {
+export function createQueryFunction(
+  config: Config,
+  repoPath: string,
+  logger?: DebugLogger,
+): QueryFunction {
   if (config.testMode) {
+    logger?.debug('Using mock query implementation (test mode)');
     return createMockQuery();
   }
 
   switch (config.llmProvider) {
     case 'claude-cli':
-      return createClaudeCliQuery(repoPath);
+      logger?.debug('Using Claude CLI provider', { repoPath });
+      return createClaudeCliQuery(repoPath, logger);
     case 'codex-cli':
-      return createCodexCliQuery();
+      logger?.debug('Using Codex CLI provider');
+      return createCodexCliQuery(logger);
     case 'agent-sdk':
     default:
+      logger?.debug('Using Anthropic Agent SDK provider');
       return agentQuery;
   }
 }
 
-function createClaudeCliQuery(repoPath: string): QueryFunction {
+function createClaudeCliQuery(repoPath: string, logger?: DebugLogger): QueryFunction {
   return ({ prompt }: { prompt: string; options?: any }) => {
+    logger?.debug('Invoking Claude CLI', {
+      repoPath,
+      promptPreview: prompt.slice(0, 200),
+    });
     const iterator = (async function* () {
       const { stdout } = await runCommand(
         'claude',
         ['-p', '--append-system-prompt', CLAUDE_CLI_SYSTEM_PROMPT, '--add-dir', repoPath],
         prompt,
+        logger,
       );
+      logger?.debug('Claude CLI output captured', {
+        stdoutPreview: stdout.slice(0, 200),
+      });
       yield {
         type: 'assistant' as const,
         content: stdout.trimEnd(),
@@ -45,11 +62,18 @@ function createClaudeCliQuery(repoPath: string): QueryFunction {
   };
 }
 
-function createCodexCliQuery(): QueryFunction {
+function createCodexCliQuery(logger?: DebugLogger): QueryFunction {
   return ({ prompt }: { prompt: string; options?: any }) => {
-    const iterator = (async function*() {
-      const { stdout } = await runCommand('codex', ['exec', '--json', '-'], prompt);
+    logger?.debug('Invoking Codex CLI', {
+      promptPreview: prompt.slice(0, 200),
+    });
+    const iterator = (async function* () {
+      const { stdout } = await runCommand('codex', ['exec', '--json', '-'], prompt, logger);
       const message = extractCodexResponse(stdout);
+      logger?.debug('Codex CLI output parsed', {
+        stdoutPreview: stdout.slice(0, 200),
+        messagePreview: message.slice(0, 200),
+      });
       yield {
         type: 'assistant' as const,
         content: message,
@@ -64,7 +88,13 @@ async function runCommand(
   command: string,
   args: string[],
   input: string,
+  logger?: DebugLogger,
 ): Promise<{ stdout: string; stderr: string }> {
+  logger?.debug('Executing external command', {
+    command,
+    args,
+    inputPreview: input.slice(0, 200),
+  });
   return await new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'] });
 
@@ -83,8 +113,10 @@ async function runCommand(
 
     child.on('error', (error) => {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        logger?.debug('Command failed to start - not found', { command });
         return reject(new Error(`Command "${command}" not found. Ensure it is installed and on the PATH.`));
       }
+      logger?.debug('Command failed to start', { command, error });
       reject(error);
     });
 
@@ -94,8 +126,18 @@ async function runCommand(
         const message = trimmedError
           ? `${command} exited with code ${code}: ${trimmedError}`
           : `${command} exited with code ${code}`;
+        logger?.debug('Command exited with non-zero status', {
+          command,
+          code,
+          stderr: trimmedError,
+        });
         return reject(new Error(message));
       }
+      logger?.debug('Command completed successfully', {
+        command,
+        code,
+        stdoutPreview: stdout.slice(0, 200),
+      });
       resolve({ stdout, stderr });
     });
 

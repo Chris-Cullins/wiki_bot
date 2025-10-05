@@ -5,6 +5,7 @@ import { WikiGenerator } from './wiki-generator.js';
 import { GitHubWikiWriter } from './github/github-wiki-writer.js';
 import { join, resolve } from 'path';
 import { createQueryFunction } from './query-factory.js';
+import { DebugLogger } from './logging.js';
 
 /**
  * Main entry point for the wiki bot application
@@ -19,7 +20,12 @@ async function main() {
   // Determine the repository path
   const repoPath = config.repoPath ? resolve(config.repoPath) : process.cwd();
 
-  const queryFn = createQueryFunction(config, repoPath);
+  const logger = new DebugLogger(Boolean(config.debug));
+  if (config.debug) {
+    logger.debug('Debug logging enabled');
+  }
+
+  const queryFn = createQueryFunction(config, repoPath, logger);
 
   if (config.testMode) {
     console.log('⚠️  TEST MODE ENABLED - Using mock Agent SDK (no API calls will be made)');
@@ -52,7 +58,7 @@ async function main() {
   console.log(`Found ${filePaths.length} files in repository`);
 
   // Initialize wiki generator with appropriate query function
-  const wikiGenerator = new WikiGenerator(queryFn, config);
+  const wikiGenerator = new WikiGenerator(queryFn, config, logger);
 
   // Prepare wiki writer if configured
   const wikiWriter = config.wikiRepoUrl

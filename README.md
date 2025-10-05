@@ -43,6 +43,9 @@ ANTHROPIC_BASE_URL=https://api.anthropic.com
 # Optional: Choose a local CLI provider (default: agent-sdk)
 LLM_PROVIDER=claude-cli # or codex-cli
 
+# Optional: Verbose logging for troubleshooting
+DEBUG=false
+
 # Optional: Repository to document (defaults to current working directory)
 REPO_PATH=/path/to/your/repository
 
@@ -92,6 +95,10 @@ export LLM_PROVIDER=codex-cli
 ```
 
 When using the CLI adapters, make sure the corresponding binary is installed, authenticated, and available on `PATH`. The bot pipes each prompt through the tool once and captures the response, so interactive sessions are not supported.
+
+### Debug Logging
+
+Set `DEBUG=true` to print prompt/response previews, external command invocations, and file-access traces. This is helpful when troubleshooting CLI provider behavior or prompt template regressions.
 
 ## How It Works
 

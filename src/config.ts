@@ -34,6 +34,8 @@ export interface Config {
   incrementalDocs?: boolean;
   /** Model provider to power prompt execution */
   llmProvider: LlmProvider;
+  /** Emit verbose debug logging */
+  debug?: boolean;
 }
 
 /**
@@ -53,6 +55,7 @@ export function loadConfig(): Config {
   }
 
   const testMode = process.env.TEST_MODE === 'true';
+  const debug = process.env.DEBUG === 'true';
   const apiKey =
     process.env.ANTHROPIC_AUTH_TOKEN ||
     process.env.ANTHROPIC_API_KEY ||
@@ -86,5 +89,6 @@ export function loadConfig(): Config {
     testMode,
     incrementalDocs: process.env.INCREMENTAL_DOCS === 'true',
     llmProvider,
+    debug,
   };
 }

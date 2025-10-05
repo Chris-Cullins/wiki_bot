@@ -8,17 +8,28 @@ import type { Config } from './config.js';
 import { readFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import { loadPrompt } from './prompt-loader.js';
+import { DebugLogger } from './logging.js';
+
+const DEFAULT_MERMAID_BODY = `\`\`\`mermaid\ngraph TD\n    ComponentA[Component A] --> ComponentB[Component B]\n    ComponentB --> ComponentC[Component C]\n\`\`\``;
 
 /**
  * Generates wiki documentation for a repository
  */
 export class WikiGenerator {
+  private readonly _logger: DebugLogger;
+
   constructor(
     private _query: (params: { prompt: string; options?: any }) => Query,
-    private _config: Config
-  ) { }
+    private _config: Config,
+    logger?: DebugLogger,
+  ) {
+    this._logger = logger ?? new DebugLogger(Boolean(_config.debug));
+  }
 
   private createQuery(prompt: string): Query {
+    this._logger.debug('Dispatching query', {
+      promptPreview: prompt.slice(0, 200),
+    });
     return this._query({
       prompt,
       options: {
@@ -51,22 +62,24 @@ export class WikiGenerator {
       }
     }
 
-    if (streamText.trim().length > 0) {
-      return streamText;
-    }
+    const finalText = streamText.trim().length > 0
+      ? streamText
+      : assistantText.trim().length > 0
+        ? assistantText
+        : mockText;
 
-    if (assistantText.trim().length > 0) {
-      return assistantText;
-    }
+    this._logger.debug('Collected response text', {
+      preview: finalText.slice(0, 200),
+    });
 
-    return mockText;
+    return finalText;
   }
 
   private stripFenceWrappers(content: string): string {
     const trimmed = content.trim();
 
     const firstFence = trimmed.indexOf('```');
-    if (firstFence !== -1) {
+    if (firstFence === 0) {
       const afterFence = trimmed.slice(firstFence + 3);
       const newlineIndex = afterFence.indexOf('\n');
       let start = firstFence + 3;
@@ -122,6 +135,65 @@ export class WikiGenerator {
       }
     }
     return content;
+  }
+
+  private escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private ensureSection(content: string, heading: string, fallbackBody: string): string {
+    const escapedHeading = this.escapeRegExp(heading);
+    const pattern = new RegExp(`^##\\s+${escapedHeading}\\b`, 'm');
+    if (pattern.test(content)) {
+      return content;
+    }
+    return `${content.trim()}\n\n## ${heading}\n${fallbackBody.trim()}\n`;
+  }
+
+  private removeSection(content: string, heading: string): string {
+    const escapedHeading = this.escapeRegExp(heading);
+    const pattern = new RegExp(`(?:^|\n)##\s+${escapedHeading}\b[\s\S]*?(?=(?:\n##\s+)|$)`, 'i');
+    return content.replace(pattern, '\n').trim();
+  }
+
+  private ensureArchitectureOutline(content: string): string {
+    let normalized = content.trim();
+    if (!/^#\s+Architecture\b/m.test(normalized)) {
+      normalized = `# Architecture\n\n${normalized}`;
+    }
+
+    normalized = this.ensureSection(normalized, 'Summary', '_TODO: Provide an architectural summary._');
+    normalized = this.ensureSection(
+      normalized,
+      'Architectural Pattern',
+      '- **Style**: TODO\n- **Key Technologies**: TODO',
+    );
+    normalized = this.ensureSection(normalized, 'Key Directories', '- `src/`: TODO');
+    normalized = this.ensureSection(normalized, 'Architectural Areas', '- **Area** — TODO');
+    normalized = this.ensureSection(normalized, 'Component Interactions', '- TODO');
+    normalized = this.ensureSection(normalized, 'Data Flow', '- TODO');
+
+    let mermaidBlock: string | undefined;
+    const fencedMermaid = normalized.match(/```mermaid[\s\S]*?```/i);
+    if (fencedMermaid) {
+      mermaidBlock = fencedMermaid[0].trim();
+      normalized = normalized.replace(/```mermaid[\s\S]*?```/gi, '').trim();
+    } else {
+      const strayMermaid = normalized.match(/(^|\n)(graph\s+TD[\s\S]*?)(?=(?:\n##\s+)|$)/i);
+      if (strayMermaid) {
+        const prefix = strayMermaid[1];
+        const body = strayMermaid[2].trim();
+        mermaidBlock = `\`\`\`mermaid\n${body}\n\`\`\``;
+        normalized = normalized.replace(strayMermaid[0], prefix).trim();
+      }
+    }
+
+    normalized = this.removeSection(normalized, 'Diagram');
+    if (!mermaidBlock) {
+      mermaidBlock = DEFAULT_MERMAID_BODY;
+    }
+
+    return `${normalized}\n\n## Diagram\n\n${mermaidBlock}\n`.trim();
   }
 
   private isMockAssistantMessage(message: unknown): message is { type: 'assistant'; content: string } {
@@ -242,10 +314,21 @@ export class WikiGenerator {
       repoRoot,
     });
 
+    this._logger.debug('Loaded home page prompt', {
+      promptName,
+      length: prompt.length,
+    });
+
     const query = this.createQuery(prompt);
 
     const response = this.stripFenceWrappers(await this.collectResponseText(query));
+    this._logger.debug('Home page raw response', {
+      preview: response.slice(0, 200),
+    });
     const withHeading = this.ensureHeading(response, 'Home');
+    this._logger.debug('Generated home page content', {
+      preview: withHeading.slice(0, 200),
+    });
 
     return withHeading || '# Home\n\nUnable to generate home page.';
   }
@@ -260,6 +343,7 @@ export class WikiGenerator {
     console.log('Generating architectural overview...');
 
     const structureText = this.formatRepoStructure(repoStructure);
+    const repoRoot = this._config.repoPath ? resolve(this._config.repoPath) : process.cwd();
     const useIncremental = this._config.incrementalDocs && existingDoc !== undefined;
     const promptName = useIncremental
       ? 'update-architectural-overview'
@@ -267,14 +351,27 @@ export class WikiGenerator {
     const prompt = await loadPrompt(promptName, {
       structureText,
       existingDoc: existingDoc ?? '',
+      repoRoot,
+    });
+
+    this._logger.debug('Loaded architecture prompt', {
+      promptName,
+      length: prompt.length,
     });
 
     const query = this.createQuery(prompt);
 
     const response = this.stripFenceWrappers(await this.collectResponseText(query));
+    this._logger.debug('Architecture raw response', {
+      preview: response.slice(0, 200),
+    });
     const withHeading = this.ensureHeading(response, 'Architecture');
+    const normalized = this.ensureArchitectureOutline(withHeading);
+    this._logger.debug('Generated architecture content', {
+      preview: normalized.slice(0, 200),
+    });
 
-    return withHeading || '# Architecture\n\nUnable to generate architectural overview.';
+    return normalized || '# Architecture\n\nUnable to generate architectural overview.';
   }
 
   /**
@@ -282,10 +379,16 @@ export class WikiGenerator {
    */
   async extractArchitecturalAreas(architecturalOverview: string): Promise<string[]> {
     const prompt = await loadPrompt('extract-architectural-areas', { architecturalOverview });
+    this._logger.debug('Loaded extract-areas prompt', {
+      length: prompt.length,
+    });
 
     const query = this.createQuery(prompt);
 
     const response = this.stripFenceWrappers(await this.collectResponseText(query));
+    this._logger.debug('Architectural areas raw response', {
+      preview: response.slice(0, 200),
+    });
 
     try {
       const areas = JSON.parse(response);
@@ -312,9 +415,18 @@ export class WikiGenerator {
       allFiles: allFiles.join('\n'),
     });
 
+    this._logger.debug('Loaded relevant-files prompt', {
+      area,
+      length: prompt.length,
+    });
+
     const query = this.createQuery(prompt);
 
     const response = this.stripFenceWrappers(await this.collectResponseText(query));
+    this._logger.debug('Relevant files raw response', {
+      area,
+      preview: response.slice(0, 200),
+    });
 
     try {
       const files = JSON.parse(response);
@@ -343,9 +455,18 @@ export class WikiGenerator {
         relevant.push(entry);
       }
 
+      this._logger.debug('Resolved relevant files', {
+        area,
+        count: relevant.length,
+        sample: relevant.slice(0, 5),
+      });
       return relevant;
     } catch {
       console.warn(`Failed to parse relevant files for area "${area}"`);
+      this._logger.debug('Failed to parse relevant files response', {
+        area,
+        responsePreview: response.slice(0, 200),
+      });
       return [];
     }
   }
@@ -364,6 +485,10 @@ export class WikiGenerator {
         const fullPath = join(repoPath, filePath);
         const content = await readFile(fullPath, 'utf-8');
         fileContents.set(filePath, content);
+        this._logger.debug('Read file for area documentation', {
+          filePath,
+          length: content.length,
+        });
       } catch (error) {
         console.warn(`Failed to read file ${filePath}:`, error);
       }
@@ -400,9 +525,19 @@ export class WikiGenerator {
       existingDoc: existingDoc ?? '',
     });
 
+    this._logger.debug('Loaded area documentation prompt', {
+      area,
+      promptName,
+      length: prompt.length,
+    });
+
     const query = this.createQuery(prompt);
 
     const response = this.stripFenceWrappers(await this.collectResponseText(query));
+    this._logger.debug('Area documentation raw response', {
+      area,
+      preview: response.slice(0, 200),
+    });
     const withHeading = this.ensureHeading(response, area);
 
     return withHeading || `# ${area}\n\nUnable to generate documentation for this area.`;

@@ -41,6 +41,7 @@ npm start
   - `ANTHROPIC_BASE_URL` for custom endpoints.
   - `REPO_PATH` to target a specific local repository (defaults to CWD).
   - `REPO_URL` for the canonical GitHub location.
+  - `DEBUG=true` to emit detailed prompt/response logging during execution.
 - Environment variables can be exported directly or stored in a `.env` derived from `.env.example`.
 
 ## Roadmap
