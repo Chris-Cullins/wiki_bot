@@ -3,6 +3,7 @@ import type { FileNode } from './repo-crawler.js';
 import type { Config } from './config.js';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
+import { loadPrompt } from './prompts/prompt-loader.js';
 
 /**
  * Generates wiki documentation for a repository
@@ -35,20 +36,7 @@ export class WikiGenerator {
     console.log('Generating home page...');
 
     const structureText = this.formatRepoStructure(repoStructure);
-
-    const prompt = `You are a technical documentation expert. Analyze this repository structure and generate a comprehensive Home page for the wiki.
-
-Repository Structure:
-${structureText}
-
-Please create a Home.md page that includes:
-1. A clear project title and brief description (infer from the structure)
-2. An overview of what this project does
-3. Main features or capabilities (based on the file structure)
-4. High-level architecture summary
-5. Links to key documentation sections
-
-The output should be in Markdown format and professional.`;
+    const prompt = await loadPrompt('generate-home-page', { structureText });
 
     const query = this._query({
       prompt,
@@ -76,24 +64,7 @@ The output should be in Markdown format and professional.`;
     console.log('Generating architectural overview...');
 
     const structureText = this.formatRepoStructure(repoStructure);
-
-    const prompt = `You are a software architect analyzing a repository. Based on the structure below, identify and document the architectural patterns and main areas of the application.
-
-Repository Structure:
-${structureText}
-
-Please create an Architecture.md page that includes:
-1. Overall architectural pattern (e.g., MVC, microservices, layered, component-based)
-2. Key directories and their purposes
-3. Main architectural "slices" or areas (identify 3-7 distinct areas that developers would work in)
-4. Component interactions and dependencies
-5. Data flow and system boundaries
-
-For the architectural slices, provide a list in this format:
-## Architectural Areas
-- **Area Name**: Brief description
-
-The output should be in Markdown format and technical but accessible.`;
+    const prompt = await loadPrompt('generate-architectural-overview', { structureText });
 
     const query = this._query({
       prompt,
@@ -118,11 +89,7 @@ The output should be in Markdown format and technical but accessible.`;
    * Extract architectural areas from the generated overview
    */
   async extractArchitecturalAreas(architecturalOverview: string): Promise<string[]> {
-    const prompt = `Based on this architectural overview, extract a simple list of the main architectural areas or slices.
-
-${architecturalOverview}
-
-Please provide ONLY a JSON array of area names, nothing else. Example: ["Authentication", "Data Layer", "API Services"]`;
+    const prompt = await loadPrompt('extract-architectural-areas', { architecturalOverview });
 
     const query = this._query({
       prompt,
@@ -157,16 +124,11 @@ Please provide ONLY a JSON array of area names, nothing else. Example: ["Authent
     repoStructure: FileNode,
   ): Promise<string[]> {
     const structureText = this.formatRepoStructure(repoStructure);
-
-    const prompt = `You are analyzing a codebase. Given the architectural area "${area}", identify which files from the repository are most relevant to document this area.
-
-Repository Structure:
-${structureText}
-
-All Files:
-${allFiles.join('\n')}
-
-Please provide ONLY a JSON array of file paths that are relevant to the "${area}" area. Include the most important files (limit to 10-15 files). Example: ["src/auth/login.ts", "src/auth/middleware.ts"]`;
+    const prompt = await loadPrompt('identify-relevant-files', {
+      area,
+      structureText,
+      allFiles: allFiles.join('\n'),
+    });
 
     const query = this._query({
       prompt,
@@ -232,20 +194,10 @@ Please provide ONLY a JSON array of file paths that are relevant to the "${area}
       fileContentText += `\n--- ${filePath} ---\n${content}\n`;
     }
 
-    const prompt = `You are a technical documentation expert. Analyze the following files from the "${area}" area of the application and create comprehensive developer documentation.
-
-Files in this area:
-${fileContentText}
-
-Please create a detailed documentation page that includes:
-1. **Overview**: Purpose and responsibilities of this area
-2. **Key Components**: Main files/classes and their roles
-3. **How It Works**: Logical flow and important implementation details
-4. **Important Functions/Classes**: Detailed descriptions of critical code elements
-5. **Developer Notes**: Gotchas, best practices, and things to be aware of
-6. **Usage Examples**: Where applicable, show how to use this area
-
-The output should be in Markdown format, well-structured, and targeted at developers who need to understand or work with this code.`;
+    const prompt = await loadPrompt('generate-area-documentation', {
+      area,
+      fileContentText,
+    });
 
     const query = this._query({
       prompt,
