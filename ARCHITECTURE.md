@@ -7,6 +7,7 @@
   - will support export ANTHROPIC_BASE_URL=
                  export ANTHROPIC_AUTH_TOKEN=
 - The application will "crawl" the github repo and build out the file structure including names, etc, and the agent will use that as a guide to know what files it needs to read from the repo, depending on what the goal of the current step is. 
+- Information on creating github wiki pages locally - https://docs.github.com/en/communities/documenting-your-project-with-wikis/adding-or-editing-wiki-pages
 
 ## Functionality
 - The goal of this application is to run an AI Agent to build out a Wiki site for a github repo. 
