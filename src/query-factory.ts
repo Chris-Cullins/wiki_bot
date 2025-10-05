@@ -123,13 +123,24 @@ async function runCommand(
     child.on('close', (code) => {
       if (code !== 0) {
         const trimmedError = stderr.trim();
+        const trimmedStdout = stdout.trim();
+        const supplemental = trimmedError || trimmedStdout
+          ? `: ${trimmedError || trimmedStdout}`
+          : '';
+        if (trimmedStdout.toLowerCase().includes('usage limit')) {
+          logger?.debug('Command reported usage limit', {
+            command,
+            stdout: trimmedStdout,
+          });
+        }
         const message = trimmedError
           ? `${command} exited with code ${code}: ${trimmedError}`
-          : `${command} exited with code ${code}`;
+          : `${command} exited with code ${code}${supplemental}`;
         logger?.debug('Command exited with non-zero status', {
           command,
           code,
           stderr: trimmedError,
+          stdout: trimmedStdout,
         });
         return reject(new Error(message));
       }
