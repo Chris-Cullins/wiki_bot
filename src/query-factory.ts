@@ -1,8 +1,8 @@
 import { spawn } from 'child_process';
 import { query as agentQuery } from '@anthropic-ai/claude-agent-sdk';
 import type { Query } from '@anthropic-ai/claude-agent-sdk';
-import type { Config } from '../config.js';
-import { createMockQuery } from '../mock-agent-sdk.js';
+import type { Config } from './config.js';
+import { createMockQuery } from './mock-agent-sdk.js';
 
 export type QueryFunction = (params: { prompt: string; options?: any }) => Query;
 
@@ -24,7 +24,7 @@ export function createQueryFunction(config: Config): QueryFunction {
 
 function createClaudeCliQuery(): QueryFunction {
   return ({ prompt }: { prompt: string; options?: any }) => {
-    const iterator = (async function* () {
+    const iterator = (async function*() {
       const { stdout } = await runCommand('claude', ['-p'], prompt);
       yield {
         type: 'assistant' as const,
@@ -38,7 +38,7 @@ function createClaudeCliQuery(): QueryFunction {
 
 function createCodexCliQuery(): QueryFunction {
   return ({ prompt }: { prompt: string; options?: any }) => {
-    const iterator = (async function* () {
+    const iterator = (async function*() {
       const { stdout } = await runCommand('codex', ['exec', '--json', '-'], prompt);
       const message = extractCodexResponse(stdout);
       yield {

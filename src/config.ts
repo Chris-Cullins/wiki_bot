@@ -1,4 +1,4 @@
-import type { RepositoryMode } from './wiki-storage/git-repository-manager.js';
+import type { RepositoryMode } from './github/git-repository-manager.js';
 
 export type LlmProvider = 'agent-sdk' | 'claude-cli' | 'codex-cli';
 

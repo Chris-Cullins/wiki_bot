@@ -2,9 +2,9 @@ import 'dotenv/config';
 import { loadConfig } from './config.js';
 import { RepoCrawler } from './repo-crawler.js';
 import { WikiGenerator } from './wiki-generator.js';
-import { GitHubWikiWriter } from './wiki-storage/github-wiki-writer.js';
+import { GitHubWikiWriter } from './github/github-wiki-writer.js';
 import { join } from 'path';
-import { createQueryFunction } from './llm/query-factory.js';
+import { createQueryFunction } from './query-factory.js';
 
 /**
  * Main entry point for the wiki bot application
