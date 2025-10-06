@@ -160,6 +160,36 @@ export class WikiGenerator {
       .replace(/^-+|-+$/g, '') || 'section';
   }
 
+  private hasMeaningfulBody(content: string, title: string): boolean {
+    const trimmed = content.trim();
+    if (!trimmed) {
+      return false;
+    }
+
+    const lines = trimmed.split(/\r?\n/);
+    if (lines.length === 0) {
+      return false;
+    }
+
+    let bodyStart = 0;
+    const headingMatch = lines[0]?.match(/^(#+)\s+(.*)$/);
+    if (headingMatch) {
+      const normalizedHeading = headingMatch[2].trim().toLowerCase();
+      const normalizedTitle = title.trim().toLowerCase();
+      if (normalizedHeading === normalizedTitle) {
+        bodyStart = 1;
+      }
+    }
+
+    for (let index = bodyStart; index < lines.length; index += 1) {
+      if (lines[index].trim().length > 0) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   private ensureSection(content: string, heading: string, fallbackBody: string): string {
     const escapedHeading = this.escapeRegExp(heading);
     const pattern = new RegExp(`^##\\s+${escapedHeading}\\b`, 'm');
@@ -361,6 +391,13 @@ export class WikiGenerator {
       preview: rawResponse.slice(0, 200),
     });
     const withHeading = this.ensureHeading(response, 'Home');
+    if (!this.hasMeaningfulBody(withHeading, 'Home')) {
+      if (existingDoc && existingDoc.trim().length > 0) {
+        this._logger.debug('Home page generation returned no new content, reusing existing page');
+        return existingDoc;
+      }
+      return '# Home\n\nUnable to generate home page.';
+    }
     const templated = await this._templates.render('home', {
       title: 'Home',
       content: withHeading,
@@ -370,7 +407,15 @@ export class WikiGenerator {
       preview: templated.slice(0, 200),
     });
 
-    return templated || '# Home\n\nUnable to generate home page.';
+    if (!this.hasMeaningfulBody(templated, 'Home')) {
+      if (existingDoc && existingDoc.trim().length > 0) {
+        this._logger.debug('Templated home page was empty after rendering, reusing existing page');
+        return existingDoc;
+      }
+      return '# Home\n\nUnable to generate home page.';
+    }
+
+    return templated;
   }
 
   /**
@@ -412,6 +457,13 @@ export class WikiGenerator {
     });
     const withHeading = this.ensureHeading(response, 'Architecture');
     const normalized = this.ensureArchitectureOutline(withHeading);
+    if (!this.hasMeaningfulBody(normalized, 'Architecture')) {
+      if (existingDoc && existingDoc.trim().length > 0) {
+        this._logger.debug('Architecture generation produced no new content, reusing existing page');
+        return existingDoc;
+      }
+      return '# Architecture\n\nUnable to generate architectural overview.';
+    }
     const templated = await this._templates.render('architecture', {
       title: 'Architecture',
       content: normalized,
@@ -421,7 +473,15 @@ export class WikiGenerator {
       preview: templated.slice(0, 200),
     });
 
-    return templated || '# Architecture\n\nUnable to generate architectural overview.';
+    if (!this.hasMeaningfulBody(templated, 'Architecture')) {
+      if (existingDoc && existingDoc.trim().length > 0) {
+        this._logger.debug('Architecture generation returned no content, reusing existing page');
+        return existingDoc;
+      }
+      return '# Architecture\n\nUnable to generate architectural overview.';
+    }
+
+    return templated;
   }
 
   /**
@@ -605,6 +665,15 @@ export class WikiGenerator {
       preview: rawResponse.slice(0, 200),
     });
     const withHeading = this.ensureHeading(response, area);
+    if (!this.hasMeaningfulBody(withHeading, area)) {
+      if (existingDoc && existingDoc.trim().length > 0) {
+        this._logger.debug('Area documentation had no new content, reusing existing page', {
+          area,
+        });
+        return existingDoc;
+      }
+      return `# ${area}\n\nUnable to generate documentation for this area.`;
+    }
     const templated = await this._templates.render(
       'area',
       {
@@ -618,8 +687,17 @@ export class WikiGenerator {
         variantSubdir: 'areas',
       },
     );
+    if (!this.hasMeaningfulBody(templated, area)) {
+      if (existingDoc && existingDoc.trim().length > 0) {
+        this._logger.debug('Templated area documentation was empty, reusing existing page', {
+          area,
+        });
+        return existingDoc;
+      }
+      return `# ${area}\n\nUnable to generate documentation for this area.`;
+    }
 
-    return templated || `# ${area}\n\nUnable to generate documentation for this area.`;
+    return templated;
   }
 
   /**
