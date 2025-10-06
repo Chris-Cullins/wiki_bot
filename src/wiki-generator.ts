@@ -478,14 +478,14 @@ export class WikiGenerator {
       preview: rawResponse.slice(0, 200),
     });
     const withHeading = this.ensureHeading(response, 'Architecture');
-    const normalized = this.ensureArchitectureOutline(withHeading);
-    if (!this.hasMeaningfulBody(normalized, 'Architecture')) {
+    if (!this.hasMeaningfulBody(withHeading, 'Architecture')) {
       if (existingDoc && existingDoc.trim().length > 0) {
         this._logger.debug('Architecture generation produced no new content, reusing existing page');
         return existingDoc;
       }
       return '# Architecture\n\nUnable to generate architectural overview.';
     }
+    const normalized = this.ensureArchitectureOutline(withHeading);
     const templated = await this._templates.render('architecture', {
       title: 'Architecture',
       content: normalized,
