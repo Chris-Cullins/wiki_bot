@@ -113,7 +113,7 @@ function resolveTargetFiles(
 
     const absoluteCandidate = isAbsolute(input)
       ? input
-      : resolve(process.cwd(), input);
+      : resolve(repoPath, input);
     const relativeToRepo = normalizeRepoPath(relative(repoPath, absoluteCandidate));
 
     if (!relativeToRepo.startsWith('..') && knownFiles.has(relativeToRepo)) {
