@@ -190,6 +190,28 @@ export class WikiGenerator {
     return false;
   }
 
+  private isMetaDescription(content: string): boolean {
+    const trimmed = content.trim();
+    if (!trimmed) {
+      return false;
+    }
+
+    const paragraph = trimmed.split(/\r?\n\s*\r?\n/, 1)[0]?.toLowerCase() ?? '';
+
+    if (!paragraph) {
+      return false;
+    }
+
+    const metaTriggers = [
+      /i['’]ve\s+(created|provided|assembled|prepared)\b.*\b(doc|documentation|wiki)/i,
+      /i\s+have\s+(created|provided|assembled|prepared)\b.*\b(doc|documentation|wiki)/i,
+      /this\s+(documentation|doc|wiki)\s+(includes|covers|contains)/i,
+      /the\s+(documentation|doc|wiki)\s+(includes|covers|contains)/i,
+    ];
+
+    return metaTriggers.some((pattern) => pattern.test(paragraph));
+  }
+
   private ensureSection(content: string, heading: string, fallbackBody: string): string {
     const escapedHeading = this.escapeRegExp(heading);
     const pattern = new RegExp(`^##\\s+${escapedHeading}\\b`, 'm');
@@ -665,6 +687,15 @@ export class WikiGenerator {
       preview: rawResponse.slice(0, 200),
     });
     const withHeading = this.ensureHeading(response, area);
+    if (this.isMetaDescription(withHeading)) {
+      this._logger.debug('Area documentation appears meta-descriptive, reusing existing content if available', {
+        area,
+      });
+      if (existingDoc && existingDoc.trim().length > 0) {
+        return existingDoc;
+      }
+      return `# ${area}\n\nUnable to generate documentation for this area.`;
+    }
     if (!this.hasMeaningfulBody(withHeading, area)) {
       if (existingDoc && existingDoc.trim().length > 0) {
         this._logger.debug('Area documentation had no new content, reusing existing page', {
@@ -687,6 +718,15 @@ export class WikiGenerator {
         variantSubdir: 'areas',
       },
     );
+    if (this.isMetaDescription(templated)) {
+      this._logger.debug('Templated area documentation remained meta-descriptive, reusing existing content if available', {
+        area,
+      });
+      if (existingDoc && existingDoc.trim().length > 0) {
+        return existingDoc;
+      }
+      return `# ${area}\n\nUnable to generate documentation for this area.`;
+    }
     if (!this.hasMeaningfulBody(templated, area)) {
       if (existingDoc && existingDoc.trim().length > 0) {
         this._logger.debug('Templated area documentation was empty, reusing existing page', {
