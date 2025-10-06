@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'fs/promises';
+import { readFile, readdir, rm, writeFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import {
   GitRepositoryManager,
@@ -20,6 +20,8 @@ export interface GitHubWikiWriterOptions {
   mode?: RepositoryMode;
   /** Use shallow clone for faster initial setup */
   shallow?: boolean;
+  /** Remove existing wiki markdown files when running in fresh mode */
+  cleanupOnFresh?: boolean;
 }
 
 /**
@@ -30,6 +32,8 @@ export class GitHubWikiWriter {
   private readonly _commitMessage: string;
   private readonly _repoManager: GitRepositoryManager;
   private _prepared = false;
+  private readonly _cleanupOnFresh: boolean;
+  private _pagesCleaned = false;
 
   constructor(private readonly _options: GitHubWikiWriterOptions) {
     this._localPath = resolve(_options.localPath);
@@ -43,6 +47,8 @@ export class GitHubWikiWriter {
       mode: _options.mode ?? 'incremental',
       shallow: _options.shallow ?? false,
     });
+
+    this._cleanupOnFresh = Boolean(_options.cleanupOnFresh);
   }
 
   /**
@@ -94,6 +100,7 @@ export class GitHubWikiWriter {
       return;
     }
     await this._repoManager.prepare();
+    await this.cleanupExistingPagesIfNeeded();
     this._prepared = true;
   }
 
@@ -145,6 +152,46 @@ export class GitHubWikiWriter {
 
     await this._repoManager.push();
     console.log('Wiki changes pushed successfully');
+  }
+
+  private async cleanupExistingPagesIfNeeded(): Promise<void> {
+    if (
+      !this._cleanupOnFresh ||
+      this._pagesCleaned ||
+      this._options.mode !== 'fresh'
+    ) {
+      return;
+    }
+
+    const removed: string[] = [];
+    await this.removeMarkdownFiles(this._localPath, removed);
+    this._pagesCleaned = true;
+
+    if (removed.length > 0) {
+      console.log(`  - Removed ${removed.length} existing wiki markdown file(s)`);
+    }
+  }
+
+  private async removeMarkdownFiles(currentPath: string, removed: string[]): Promise<void> {
+    const entries = await readdir(currentPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (entry.name === '.git') {
+        continue;
+      }
+
+      const fullPath = join(currentPath, entry.name);
+
+      if (entry.isDirectory()) {
+        await this.removeMarkdownFiles(fullPath, removed);
+        continue;
+      }
+
+      if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
+        await rm(fullPath, { force: true });
+        removed.push(fullPath);
+      }
+    }
   }
 
   /**

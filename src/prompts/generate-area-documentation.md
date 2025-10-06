@@ -3,6 +3,9 @@ You are a technical documentation expert. Analyze the following files from the "
 Files in this area:
 {{fileContentText}}
 
+Depth guidance:
+{{depthInstruction}}
+
 Please create a detailed documentation page that includes:
 1. **Overview**: Purpose and responsibilities of this area
 2. **Key Components**: Main files/classes and their roles

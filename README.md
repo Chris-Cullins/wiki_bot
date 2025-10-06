@@ -10,6 +10,8 @@ An AI-powered documentation generator that automatically creates comprehensive G
 - **Multi-Phase Workflow**: Systematic approach to creating comprehensive documentation
 - **Streaming Responses**: Real-time documentation generation using Claude's streaming API
 - **Flexible LLM Providers**: Default to the Anthropic Agent SDK or run via local Claude/Codex CLIs to manage usage
+- **Debug Transcripts**: Optional prompt/response capture for deep troubleshooting
+- **Custom Templates**: Drop-in Markdown templates to control page layout per section
 
 ## Installation
 
@@ -43,6 +45,16 @@ LLM_PROVIDER=claude-cli # or codex-cli
 
 # Optional: Verbose logging for troubleshooting
 DEBUG=false
+# Optional: Persist full prompt/response transcripts for debugging
+PROMPT_LOG_ENABLED=false
+# Optional: Override transcript output directory
+PROMPT_LOG_DIR=.wiki-logs
+# Optional: Documentation depth (summary | standard | deep)
+DOC_DEPTH=standard
+# Optional: Provide custom Markdown templates for generated pages
+TEMPLATE_DIR=./src/templates
+# Optional: Remove existing wiki markdown files when WIKI_REPO_MODE=fresh
+WIKI_FRESH_CLEAN=false
 
 # Optional: Repository to document (defaults to current working directory)
 REPO_PATH=/path/to/your/repository
@@ -50,6 +62,12 @@ REPO_PATH=/path/to/your/repository
 # Optional: GitHub repository URL
 REPO_URL=https://github.com/username/repo
 ```
+
+Common optional toggles include:
+- `PROMPT_LOG_ENABLED` / `PROMPT_LOG_DIR` to capture raw LLM transcripts for audits
+- `DOC_DEPTH` to choose between `summary`, `standard`, or `deep` area write-ups
+- `TEMPLATE_DIR` to point at custom Markdown wrappers
+- `WIKI_FRESH_CLEAN` to remove legacy markdown files when `WIKI_REPO_MODE=fresh`
 
 Copy `.env.example` as a template:
 
@@ -93,6 +111,16 @@ export LLM_PROVIDER=codex-cli
 ```
 
 When using the CLI adapters, make sure the corresponding binary is installed, authenticated, and available on `PATH`. The bot pipes each prompt through the tool once and captures the response, so interactive sessions are not supported.
+
+### Selective Regeneration
+
+Target a specific source file to refresh only the affected documentation:
+
+```bash
+npm run dev -- --target-file src/wiki-generator.ts
+```
+
+You can also override the per-run documentation depth with `--depth summary|standard|deep`.
 
 ### Debug Logging
 

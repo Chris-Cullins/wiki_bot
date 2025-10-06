@@ -6,6 +6,9 @@ Existing wiki content for this area (may be empty):
 Relevant source files:
 {{fileContentText}}
 
+Depth guidance:
+{{depthInstruction}}
+
 Instructions:
 - Compare the existing wiki page with the current source files.
 - Keep accurate sections as-is and modify only what has changed or is missing.

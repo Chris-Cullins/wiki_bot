@@ -1,5 +1,7 @@
 import type { RepositoryMode } from './github/git-repository-manager.js';
 
+export type DocumentationDepth = 'summary' | 'standard' | 'deep';
+
 export type LlmProvider = 'agent-sdk' | 'claude-cli' | 'codex-cli';
 
 /**
@@ -28,6 +30,8 @@ export interface Config {
   wikiRepoMode?: RepositoryMode;
   /** Use shallow clone for faster initial setup */
   wikiRepoShallow?: boolean;
+  /** Delete existing wiki markdown files when running in fresh mode */
+  wikiFreshClean?: boolean;
   /** Enable test mode to skip Agent SDK calls (saves API costs) */
   testMode?: boolean;
   /** Enable incremental documentation updates (reuse existing wiki content) */
@@ -36,6 +40,14 @@ export interface Config {
   llmProvider: LlmProvider;
   /** Emit verbose debug logging */
   debug?: boolean;
+  /** Persist full prompt/response transcripts for debugging */
+  promptLoggingEnabled?: boolean;
+  /** Directory where prompt/response transcripts should be stored */
+  promptLogDir?: string;
+  /** Desired level of detail for generated documentation */
+  documentationDepth: DocumentationDepth;
+  /** Optional override path for page templates */
+  templateDir?: string;
 }
 
 /**
@@ -56,6 +68,28 @@ export function loadConfig(): Config {
 
   const testMode = process.env.TEST_MODE === 'true';
   const debug = process.env.DEBUG === 'true';
+
+  const promptLoggingSetting = process.env.PROMPT_LOG_ENABLED?.toLowerCase();
+  let promptLoggingEnabled: boolean;
+  if (promptLoggingSetting === 'true' || promptLoggingSetting === '1' || promptLoggingSetting === 'yes') {
+    promptLoggingEnabled = true;
+  } else if (
+    promptLoggingSetting === 'false' ||
+    promptLoggingSetting === '0' ||
+    promptLoggingSetting === 'no'
+  ) {
+    promptLoggingEnabled = false;
+  } else {
+    promptLoggingEnabled = debug;
+  }
+
+  const promptLogDir = process.env.PROMPT_LOG_DIR;
+
+  const rawDepth = process.env.DOC_DEPTH?.toLowerCase();
+  let documentationDepth: DocumentationDepth = 'standard';
+  if (rawDepth === 'summary' || rawDepth === 'deep' || rawDepth === 'standard') {
+    documentationDepth = rawDepth;
+  }
   const apiKey =
     process.env.ANTHROPIC_AUTH_TOKEN ||
     process.env.ANTHROPIC_API_KEY ||
@@ -74,6 +108,24 @@ export function loadConfig(): Config {
     wikiRepoMode = rawMode;
   }
 
+  const incrementalDocsEnv = process.env.INCREMENTAL_DOCS?.toLowerCase();
+  let incrementalDocs: boolean;
+  if (incrementalDocsEnv === 'true' || incrementalDocsEnv === '1' || incrementalDocsEnv === 'yes') {
+    incrementalDocs = true;
+  } else if (
+    incrementalDocsEnv === 'false' ||
+    incrementalDocsEnv === '0' ||
+    incrementalDocsEnv === 'no'
+  ) {
+    incrementalDocs = false;
+  } else {
+    incrementalDocs = wikiRepoMode === 'incremental' || wikiRepoMode === 'reuse-or-clone';
+  }
+
+  const freshCleanEnv = process.env.WIKI_FRESH_CLEAN?.toLowerCase();
+  const wikiFreshClean =
+    freshCleanEnv === 'true' || freshCleanEnv === '1' || freshCleanEnv === 'yes';
+
   return {
     apiKey,
     baseURL: process.env.ANTHROPIC_BASE_URL,
@@ -87,8 +139,13 @@ export function loadConfig(): Config {
     wikiRepoMode,
     wikiRepoShallow: process.env.WIKI_REPO_SHALLOW === 'true',
     testMode,
-    incrementalDocs: process.env.INCREMENTAL_DOCS === 'true',
+    incrementalDocs,
+    wikiFreshClean,
     llmProvider,
     debug,
+    promptLoggingEnabled,
+    promptLogDir,
+    documentationDepth,
+    templateDir: process.env.TEMPLATE_DIR,
   };
 }
